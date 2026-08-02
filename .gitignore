@@ -1,0 +1,27 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor noise
+.DS_Store
+*.log
+npm-debug.log*
+.vscode/
+.idea/
+
+# Local scratch
+tmp/
+coverage/
+.vitest/
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Locally imported pad audio stays on the user's machine
+public/pads/local/
