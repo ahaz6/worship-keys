@@ -30,6 +30,8 @@ export const songSchema = z.object({
   shimmerLevel: z.number().min(0).max(100).optional(),
   padMotion: z.number().min(0).max(100).optional(),
   tone: z.number().min(0).max(100).optional(),
+  brightness: z.number().min(0).max(100).optional(),
+  stereoWidth: z.number().min(0).max(100).optional(),
   crossfadeSeconds: z.number().min(1).max(12).optional(),
   fadeInSeconds: z.number().min(0.5).max(20).optional(),
   fadeOutSeconds: z.number().min(0.5).max(20).optional(),

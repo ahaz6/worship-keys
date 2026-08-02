@@ -59,6 +59,19 @@ function normalise(text: string): string {
     .trim();
 }
 
+/**
+ * A musical director may count the band in without the Worship Keys wake word.
+ * Only the complete ordered 3-2-1 phrase is accepted, in German, English or
+ * digits, so ordinary speech cannot accidentally release a crescendo.
+ */
+export function isSpokenCountdown(text: string): boolean {
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z0-9äöüß]+/g, " ")
+    .trim();
+  return /(?:^|\s)(?:3|three|drei)\s+(?:2|two|zwei)\s+(?:1|one|eins)(?:\s|$)/.test(words);
+}
+
 function parseKeyPhrase(phrase: string): { tonic: PitchClass; mode: Mode } | null {
   const match = /^([a-g][b#]?)(?:\s+(major|minor|minor key|major key|m))?$/.exec(phrase.trim());
   if (!match) return null;

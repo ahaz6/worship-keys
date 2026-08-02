@@ -17,6 +17,7 @@ export function SetlistRail({
   onEditSong,
   onRename,
   unsaved,
+  showEditButtons = false,
 }: {
   setlist: Setlist;
   activeSongId: string | undefined;
@@ -25,6 +26,7 @@ export function SetlistRail({
   onEditSong: (songId: string) => void;
   onRename: (name: string) => void;
   unsaved: boolean;
+  showEditButtons?: boolean;
 }) {
   return (
     <>
@@ -55,7 +57,7 @@ export function SetlistRail({
           </p>
         ) : null}
         {setlist.songs.map((song, index) => (
-          <div key={song.id} role="listitem" style={{ position: "relative" }}>
+          <div key={song.id} role="listitem" className={`song-row-wrap${showEditButtons ? " has-edit" : ""}`}>
             <button
               type="button"
               className={`song-row${song.id === activeSongId ? " is-active" : ""}`}
@@ -74,6 +76,16 @@ export function SetlistRail({
               </span>
               <span className="key-chip">{spellKeyShort(song.concertKey as PitchClass, song.mode)}</span>
             </button>
+            {showEditButtons ? (
+              <button
+                type="button"
+                className="song-edit-button"
+                onClick={() => onEditSong(song.id)}
+                aria-label={`Edit ${song.title}`}
+              >
+                Edit
+              </button>
+            ) : null}
           </div>
         ))}
       </div>

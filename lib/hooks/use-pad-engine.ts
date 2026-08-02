@@ -18,14 +18,12 @@ export type EngineError = { code: string; message: string };
 export function usePadEngine() {
   const [snapshot, setSnapshot] = useState<PadEngineSnapshot | null>(null);
   const [manifest, setManifest] = useState<PadManifest | null>(null);
-  const [presetId, setPresetId] = useState<string>("aurora");
+  const [presetId, setPresetId] = useState<string>("sound-walls");
   // Kept per preset id so switching preset does not need a reset effect.
   const [readyByPreset, setReadyByPreset] = useState<Record<string, PitchClass[]>>({});
   const [loadingKeys, setLoadingKeys] = useState(false);
   const [error, setError] = useState<EngineError | null>(null);
   const [meter, setMeter] = useState({ left: 0, right: 0 });
-  // Locally imported packs live only in this browser session (spec 8.10).
-  const [localPresets, setLocalPresets] = useState<PadPreset[]>([]);
 
   // One engine per page, created lazily so the AudioContext is only built once.
   const [engine] = useState(() => new PadEngine({ onSnapshot: setSnapshot, onError: setError }));
@@ -35,7 +33,14 @@ export function usePadEngine() {
   useEffect(() => {
     const controller = new AbortController();
     PadAssetLoader.loadManifest(controller.signal)
-      .then(setManifest)
+      .then((loaded) => {
+        const soundWall = loaded.presets.find((entry) => entry.id === "sound-walls");
+        if (!soundWall) throw new Error("Sound Wall Pads is missing from the pad manifest.");
+        setManifest({
+          ...loaded,
+          presets: [{ ...soundWall, name: "Sound Wall Pads" }],
+        });
+      })
       .catch((issue: unknown) => {
         if (controller.signal.aborted) return;
         setError({
@@ -46,10 +51,7 @@ export function usePadEngine() {
     return () => controller.abort();
   }, []);
 
-  const presets: PadPreset[] = useMemo(
-    () => [...(manifest?.presets ?? []), ...localPresets],
-    [manifest, localPresets],
-  );
+  const presets: PadPreset[] = useMemo(() => manifest?.presets ?? [], [manifest]);
 
   const preset: PadPreset | null = useMemo(
     () => presets.find((entry) => entry.id === presetId) ?? presets[0] ?? null,
@@ -69,8 +71,12 @@ export function usePadEngine() {
     const loader = engine.assetLoader;
     if (!loader) return;
     setLoadingKeys(true);
-    const result = await loader.preload(preset, (_loaded, _total, pitchClass) => {
-      if (!loader.has(preset.id, pitchClass)) return;
+    setReadyByPreset((current) => ({ ...current, [preset.id]: [] }));
+    const tempoPreset: PadPreset = {
+      ...preset,
+      keys: preset.keys.map((asset) => engine.resolveAssetForTempo(asset)),
+    };
+    const result = await loader.preload(tempoPreset, (_loaded, _total, pitchClass) => {
       setReadyByPreset((current) => ({
         ...current,
         [preset.id]: [...new Set([...(current[preset.id] ?? []), pitchClass])],
@@ -101,35 +107,12 @@ export function usePadEngine() {
 
   useEffect(() => () => void engine.dispose(), [engine]);
 
-  /** Decodes an arbitrary encoded file with the engine's own AudioContext. */
-  const decodeForImport = useCallback(
-    async (data: ArrayBuffer): Promise<AudioBuffer> => {
-      const context = await engine.initialise();
-      return context.decodeAudioData(data);
-    },
-    [engine],
-  );
-
-  /** Registers an imported pack and makes it the active preset. */
-  const importLocalPack = useCallback(
-    (created: PadPreset, pads: { pitchClass: PitchClass; data: ArrayBuffer }[]) => {
-      const loader = engine.assetLoader;
-      if (!loader) return;
-      for (const pad of pads) loader.registerLocalAudio(created.id, pad.pitchClass, pad.data);
-      setLocalPresets((current) => [...current.filter((entry) => entry.id !== created.id), created]);
-      setPresetId(created.id);
-    },
-    [engine],
-  );
-
   return {
     engine,
     snapshot,
     manifest,
     presets,
     preset,
-    decodeForImport,
-    importLocalPack,
     presetId,
     setPresetId,
     readyKeys,

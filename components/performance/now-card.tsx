@@ -1,13 +1,11 @@
 "use client";
 
-import type { NashvilleNumber } from "@/lib/music/nashville";
-
 /**
  * The one thing that must be readable from two metres away: the Nashville
  * number, with the concrete chord underneath it (Design-Art.md 9.3).
  */
 export function NowCard({
-  nashville,
+  bassNumber,
   chordName,
   confidence,
   ambiguous,
@@ -17,7 +15,7 @@ export function NowCard({
   preparedKey,
   transitionLabel,
 }: {
-  nashville: NashvilleNumber | null;
+  bassNumber: string | null;
   chordName: string | null;
   confidence: number;
   ambiguous: boolean;
@@ -27,26 +25,18 @@ export function NowCard({
   preparedKey: string | null;
   transitionLabel: string;
 }) {
-  const uncertain = nashville != null && confidence < 0.55;
+  const uncertain = bassNumber != null && confidence < 0.55;
 
   return (
     <section className="now-card" aria-label="Current musical state">
       <div className="now-primary">
         <span className="label">Nashville</span>
         <div
-          className={`nashville${nashville ? (uncertain ? " is-uncertain" : "") : " is-idle"}`}
+          className={`nashville${bassNumber ? (uncertain ? " is-uncertain" : "") : " is-idle"}`}
           aria-live="polite"
-          aria-label={nashville ? `Nashville ${nashville.text}` : "No chord detected"}
+          aria-label={bassNumber ? `Nashville bass degree ${bassNumber}` : "No chord detected"}
         >
-          {nashville ? (
-            <>
-              {nashville.degree}
-              {nashville.suffix ? <sup>{nashville.suffix}</sup> : null}
-              {nashville.bassDegree ? <span>/{nashville.bassDegree}</span> : null}
-            </>
-          ) : (
-            "—"
-          )}
+          {bassNumber ?? "—"}
         </div>
         <div className={`chord-name${chordName ? "" : " is-idle"}`}>
           {chordName ?? "Play a chord to see it here"}
@@ -56,7 +46,7 @@ export function NowCard({
           <i style={{ width: `${Math.round(confidence * 100)}%` }} />
         </div>
         <span className="meta">
-          {nashville ? `Confidence ${Math.round(confidence * 100)}%` : "Listening"}
+          {bassNumber ? `Confidence ${Math.round(confidence * 100)}%` : "Listening"}
           {uncertain ? " · uncertain" : ""}
           {ambiguous ? " · ambiguous" : ""}
         </span>

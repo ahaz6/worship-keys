@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { BrandMark } from "@/components/brand/brand-mark";
@@ -29,38 +29,60 @@ export function JoinClient() {
   const [pin, setPin] = useState("");
   const [pinMessage, setPinMessage] = useState<string | null>(null);
   const [sentCommandId, setSentCommandId] = useState<string | null>(null);
+  const qrFallbackAttempted = useRef(false);
 
   const qrToken = params.get("t");
   // A command is in flight until the host's acknowledgement for it comes back.
   const pendingCommand = sentCommandId != null && session.lastAck?.messageId !== sentCommandId;
 
+  // A device identity belongs to its issued token. Reloads and reopening the
+  // same link reconnect silently, while a revoked token clears both values and
+  // deliberately asks for a new name.
   useEffect(() => {
-    const stored = window.localStorage.getItem(DEVICE_NAME_KEY);
-    if (!stored) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads localStorage, which is only available after mount
-    setDeviceName(stored);
-    setNameSubmitted(true);
+    const storedToken = window.localStorage.getItem(DEVICE_TOKEN_KEY);
+    const storedName = window.localStorage.getItem(DEVICE_NAME_KEY)?.trim();
+    if (!storedToken || !storedName) return;
+    const restore = window.setTimeout(() => {
+      setDeviceName(storedName);
+      setNameSubmitted(true);
+    }, 0);
+    return () => window.clearTimeout(restore);
   }, []);
 
-  // Prefer the token this device was already issued, so a reload keeps its role.
   useEffect(() => {
     if (!nameSubmitted) return;
     const storedToken = window.localStorage.getItem(DEVICE_TOKEN_KEY);
     const token = storedToken ?? qrToken;
     if (!token) return;
-    session.connect(token, deviceName || "Musician iPad");
+    session.connect(token, deviceName);
     return () => session.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nameSubmitted, qrToken]);
 
   useEffect(() => {
-    if (session.deviceToken) window.localStorage.setItem(DEVICE_TOKEN_KEY, session.deviceToken);
-  }, [session.deviceToken]);
+    if (!session.deviceToken) return;
+    window.localStorage.setItem(DEVICE_TOKEN_KEY, session.deviceToken);
+    if (deviceName.trim()) window.localStorage.setItem(DEVICE_NAME_KEY, deviceName.trim());
+  }, [deviceName, session.deviceToken]);
 
-  // A rejected token is almost always a restarted host; drop it and use the QR.
+  // A rejected stored token is usually from a restarted host. If this page was
+  // opened from a fresh QR/link, retry that token once without asking again.
   useEffect(() => {
-    if (session.status === "rejected") window.localStorage.removeItem(DEVICE_TOKEN_KEY);
-  }, [session.status]);
+    if (session.status !== "rejected") return;
+    window.localStorage.removeItem(DEVICE_TOKEN_KEY);
+    if (/removed/i.test(session.message ?? "")) {
+      window.localStorage.removeItem(DEVICE_NAME_KEY);
+      qrFallbackAttempted.current = true;
+      const reset = window.setTimeout(() => {
+        setDeviceName("");
+        setNameSubmitted(false);
+      }, 0);
+      return () => window.clearTimeout(reset);
+    }
+    if (!qrToken || !nameSubmitted || qrFallbackAttempted.current) return;
+    qrFallbackAttempted.current = true;
+    session.connect(qrToken, deviceName);
+  }, [deviceName, nameSubmitted, qrToken, session, session.message, session.status]);
 
   const submitPin = useCallback(async () => {
     setPinMessage(null);
@@ -113,12 +135,12 @@ export function JoinClient() {
             type="button"
             className="btn-primary"
             onClick={() => {
-              const name = deviceName.trim() || "Musician iPad";
-              setDeviceName(name);
+              const name = deviceName.trim();
               window.localStorage.setItem(DEVICE_NAME_KEY, name);
+              setDeviceName(name);
               setNameSubmitted(true);
             }}
-            disabled={!qrToken && !window.localStorage.getItem(DEVICE_TOKEN_KEY)}
+            disabled={!deviceName.trim() || (!qrToken && !window.localStorage.getItem(DEVICE_TOKEN_KEY))}
           >
             Join
           </button>
@@ -155,6 +177,7 @@ export function JoinClient() {
           ageSeconds={ageSeconds}
           pendingCommand={pendingCommand}
           lastMessage={session.message}
+          onDismissMessage={session.dismissMessage}
           onCommand={sendCommand}
         />
       </>

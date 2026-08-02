@@ -67,16 +67,16 @@ appear on a device that merely shares the network.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 | `npm run verify` | Typecheck, lint, tests and build in one go |
-| `npm run pads:generate` | Re-render the built-in pad packs |
+| `npm run pads:prepare` | Re-render the final Sound Walls pack from the owner-supplied sources |
 | `npm run icons:generate` | Re-derive the icon variants from the source artwork |
 
 ## Audio assets
 
-Every pad shipped with this project is synthesised by
-`scripts/generate-pads.mjs` and is original work owned by the project. No audio
-is taken from any commercial pad product. You can import your own or properly
-licensed files through **Import your own pads**; those stay in your browser and
-are never uploaded.
+**Sound Wall Pads** is the only bundled pack. It contains all twelve keys and is
+prepared from the project owner's 48 kHz stereo recordings with
+`scripts/prepare-sound-walls.mjs`. The 30-minute source recordings remain on the
+external SSD and are deliberately excluded from Git. No catalogue preview audio
+is included.
 
 ## Documentation
 

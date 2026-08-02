@@ -40,6 +40,10 @@ export class SessionConnection {
 
   private open(): void {
     if (typeof window === "undefined" || !this.token) return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.socket?.close();
 
     const scheme = window.location.protocol === "https:" ? "wss" : "ws";
@@ -60,6 +64,7 @@ export class SessionConnection {
     };
 
     socket.onclose = () => {
+      if (this.socket !== socket) return;
       this.socket = null;
       if (!this.wantsConnection) {
         this.events.onStatus("closed");
@@ -76,6 +81,7 @@ export class SessionConnection {
   giveUp(): void {
     this.wantsConnection = false;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
   }
 
   disconnect(): void {

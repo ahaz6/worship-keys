@@ -8,7 +8,7 @@ import { PITCH_CLASSES, type Mode, type PitchClass, isAccidental } from "@/lib/m
  *
  * Clicking a key never stops a running pad by accident — that is what Fade out
  * and Stop now are for. Clicking the key that is already current re-arms
- * nothing; clicking a different key prepares or crossfades depending on mode.
+ * nothing; clicking a different key starts the configured crossfade.
  */
 export function KeyRibbon({
   currentKey,

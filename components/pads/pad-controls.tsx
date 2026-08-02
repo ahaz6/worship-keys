@@ -1,14 +1,17 @@
 "use client";
 
 import { SliderField } from "@/components/common/slider-field";
-import { XyPad } from "@/components/pads/xy-pad";
-import { PAD_LIMITS, PadEngine, type PadState } from "@/lib/audio/pad-engine";
+import { BrightnessWidthPad, XyPad } from "@/components/pads/xy-pad";
+import { PAD_LIMITS, type PadState } from "@/lib/audio/pad-engine";
+import type { Mode } from "@/lib/music/pitch";
 import type { PadPreset } from "@/types/pads";
 
 export type PadSettings = {
   mainVolume: number;
   shimmer: number;
   tone: number;
+  brightness: number;
+  width: number;
   motion: number;
   fadeInSeconds: number;
   fadeOutSeconds: number;
@@ -18,45 +21,54 @@ export type PadSettings = {
 
 export const PAD_DEFAULTS: PadSettings = {
   // 70% is roughly -6 dB: loud enough to hear, quiet enough to plug in safely.
-  mainVolume: 70,
-  shimmer: 25,
-  tone: 55,
-  motion: 30,
+  mainVolume: 62,
+  shimmer: 100,
+  tone: 100,
+  brightness: 0,
+  width: 0,
+  motion: 18,
   fadeInSeconds: PAD_LIMITS.fadeSeconds.default,
   fadeOutSeconds: PAD_LIMITS.fadeSeconds.default,
   crossfadeSeconds: PAD_LIMITS.crossfadeSeconds.default,
   crescendoSeconds: PAD_LIMITS.crescendoSeconds.default,
 };
 
+/** The midpoint of the visible 40–180 BPM range. */
+export const DEFAULT_PAD_TEMPO_BPM = 110;
+
 /**
  * Right-rail pad controls (Design-Art.md 9.8).
  *
  * Main Volume is visually the most important level. Shimmer only governs the
- * effect send, and Motion only governs how fast the drone breathes — neither
+ * effect send, and Motion only governs how fast the pad breathes — neither
  * changes pitch or key, and the labels say so.
  */
 export function PadControls({
   padState,
   presets,
   presetId,
+  mode,
   onPresetChange,
   settings,
   onChange,
   muted,
   onToggleMute,
   shimmerMode,
-  onImportPads,
+  bpm,
+  onBpmChange,
 }: {
   padState: PadState;
   presets: readonly PadPreset[];
   presetId: string;
+  mode: Mode;
   onPresetChange: (id: string) => void;
   settings: PadSettings;
   onChange: (patch: Partial<PadSettings>) => void;
   muted: boolean;
   onToggleMute: () => void;
   shimmerMode: "worklet" | "reverb-only";
-  onImportPads: () => void;
+  bpm: number;
+  onBpmChange: (bpm: number) => void;
 }) {
   const preset = presets.find((entry) => entry.id === presetId);
   const stateLabel =
@@ -85,15 +97,16 @@ export function PadControls({
         </div>
         <select id="pad-preset" value={presetId} onChange={(event) => onPresetChange(event.target.value)}>
           {presets.map((entry) => (
-            <option key={entry.id} value={entry.id}>
-              {entry.name}
+            <option key={entry.id} value={entry.id} disabled={entry.mode !== "neutral" && entry.mode !== mode}>
+              {entry.name}{entry.mode === "neutral" ? " · Major + Minor" : entry.mode === "major" ? " · Major" : " · Minor"}
             </option>
           ))}
         </select>
-        {preset ? <p className="hint">{preset.description}</p> : null}
-        <button type="button" className="btn tone-quiet" onClick={onImportPads}>
-          Import your own pads
-        </button>
+        {preset ? (
+          <p className="hint">
+            {preset.description} {preset.mode === "neutral" ? "Works in major and minor." : `Designed for ${preset.mode} keys.`}
+          </p>
+        ) : null}
       </div>
 
       <SliderField
@@ -109,30 +122,17 @@ export function PadControls({
       </button>
 
       <SliderField
-        label="Shimmer"
-        value={settings.shimmer}
-        onChange={(value) => onChange({ shimmer: value })}
-        hint={settings.shimmer === 0 ? "Dry" : undefined}
-        defaultValue={PAD_DEFAULTS.shimmer}
-        onReset={() => onChange({ shimmer: PAD_DEFAULTS.shimmer })}
-      />
-      <SliderField
-        label="Tone"
-        value={settings.tone}
-        onChange={(value) => onChange({ tone: value })}
+        label="Song Tempo"
+        value={bpm}
+        onChange={onBpmChange}
+        min={40}
+        max={180}
+        step={1}
+        unit=" BPM"
         tone="blue"
-        hint={settings.tone < 34 ? "Dark" : settings.tone > 72 ? "Open" : "Warm"}
-        defaultValue={PAD_DEFAULTS.tone}
-        onReset={() => onChange({ tone: PAD_DEFAULTS.tone })}
-      />
-      <SliderField
-        label="Pad Motion"
-        value={settings.motion}
-        onChange={(value) => onChange({ motion: value })}
-        tone="blue"
-        hint={PadEngine.motionLabel(settings.motion)}
-        defaultValue={PAD_DEFAULTS.motion}
-        onReset={() => onChange({ motion: PAD_DEFAULTS.motion })}
+        defaultValue={DEFAULT_PAD_TEMPO_BPM}
+        onReset={() => onBpmChange(DEFAULT_PAD_TEMPO_BPM)}
+        hint={bpm <= 80 ? "Deep & natural" : bpm <= 120 ? "Warm & natural" : "Light & natural"}
       />
 
       <XyPad
@@ -142,8 +142,15 @@ export function PadControls({
         defaults={{ tone: PAD_DEFAULTS.tone, shimmer: PAD_DEFAULTS.shimmer }}
       />
 
+      <BrightnessWidthPad
+        brightness={settings.brightness}
+        width={settings.width}
+        onChange={(next) => onChange(next)}
+        defaults={{ brightness: PAD_DEFAULTS.brightness, width: PAD_DEFAULTS.width }}
+      />
+
       <p className="hint">
-        Pad Motion changes how the drone moves. It never changes pitch, key or loop length.
+        Both sound surfaces react live; double-click restores their defaults. Pad motion stays fixed on Slow.
         {shimmerMode === "reverb-only"
           ? " Shimmer is running as a filtered reverb send on this browser; the octave layer needs AudioWorklet."
           : ""}

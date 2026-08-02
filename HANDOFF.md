@@ -9,8 +9,8 @@ direction). Both stay in the repository as the reference.
 ## 1. Where the product stands
 
 Phases 1–8 of the spec are implemented and exercised against a running build.
-Phase 9 hardening is done for typecheck, lint, unit tests, production build,
-desktop and tablet review; Playwright end-to-end coverage is not in place yet.
+Phase 9 hardening covers typecheck, lint, unit tests, production build,
+desktop/tablet review and the central Playwright host flows.
 
 | Phase | Scope | State |
 | --- | --- | --- |
@@ -63,17 +63,16 @@ tests/               Vitest suites
 ```
 
 Audio, MIDI and music theory are pure modules with no React in them. That is
-what makes the 125 unit tests possible and it is worth preserving.
+what makes the fast unit-test suite possible and it is worth preserving.
 
 ## 3. Decisions worth knowing
 
-**Pad audio is synthesised, not sampled.** `scripts/generate-pads.mjs` renders 3
-presets × 12 keys. Seamless looping is a property of the maths rather than a
-crossfade at the seam: every partial and modulator frequency is snapped to an
-integer multiple of `1 / loopSeconds`, so after exactly one loop each oscillator
-has completed a whole number of cycles and both value and slope match at the
-join. Measured seam step equals the typical inter-sample step, so there is no
-click. This also means the shipped audio is unambiguously the project's own work.
+**Sound Wall Pads is the single visible pad pack.** `scripts/prepare-sound-walls.mjs`
+extracts all twelve keys from the project owner's supplied 48 kHz stereo
+recordings, loudness-normalises them and creates 24-second loops with an eight-second
+equal-power seam. The original 30-minute files stay on the external SSD and
+outside Git. The live graph adds bounded shimmer, tone, brightness, motion and
+mid/side width controls without modifying playback rate or loop pitch.
 
 **Three gain stages, never fighting.** Fades automate `fadeGain`, the volume
 fader owns `volumeGain`, crescendo owns `crescendoGain`, and a key change
@@ -151,7 +150,8 @@ Two real bugs were found this way and fixed:
 
 ## 5. Testing
 
-`npm test` runs 125 Vitest cases:
+`npm test` runs the Vitest unit and asset suites. `npm run test:e2e` exercises
+song-owned preset activation/persistence and setlist export/import in Chrome.
 
 - `tests/nashville.test.ts` — every mandatory case from spec 12.4, all 12 roots
   × major/minor, all 12 keys × diatonic degrees in both modes, borrowed chords,
@@ -184,9 +184,8 @@ Two real bugs were found this way and fixed:
   reliable route: patch what you need onto SQ USB 1–2.
 - **The app cannot tell whether a cable is plugged in.** The meter shows what
   Worship Keys is producing and the UI never claims `Cable connected`.
-- **Imported pads live in memory for the session.** IndexedDB persistence for
-  imported audio is designed for (`PadAssetLoader.registerLocalAudio` is the
-  seam) but not wired up yet.
+- **Imported pads are browser-local.** Audio and preset metadata persist in
+  IndexedDB but never sync to another browser or upload to the host.
 - **Local HTTPS is not set up.** For a PWA install and for Web MIDI outside
   localhost you will want a trusted local certificate.
 - **`next dev` did not hydrate in the sandboxed browser used for verification.**
@@ -199,10 +198,9 @@ Two real bugs were found this way and fixed:
 
 ## 7. Not done yet
 
-- Playwright end-to-end coverage for the central UI flows.
 - Drag-and-drop setlist reordering (buttons and keyboard move songs today).
-- Setlist JSON export/import UI (`toExportJson` exists and is tested).
-- IndexedDB persistence for imported pad audio.
+- Broader Playwright coverage for the complete host → leader → viewer flow and
+  real Web Audio/MIDI devices.
 - The optional 32×32 CoreAudio bridge (spec 17.8) — the browser stereo path is
   the shipped mode and the UI explains the limit.
 - Separate major/minor pad audio. The shipped packs are root/fifth/octave drones

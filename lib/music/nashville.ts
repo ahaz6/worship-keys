@@ -13,7 +13,7 @@
 import type { ChordCandidate } from "./chord-detector";
 import { CHORD_TEMPLATES, type ChordQuality } from "./chord-templates";
 import type { NotationPreference } from "./notation";
-import { type Mode, type PitchClass, mod } from "./pitch";
+import { type Mode, type PitchClass, mod, toPitchClass } from "./pitch";
 
 export type NashvilleNumber = {
   /** Degree with any accidental, e.g. `1`, `♭3`, `♯4`. */
@@ -103,4 +103,26 @@ export function nashvilleForCandidate(
   options: NashvilleOptions = {},
 ): NashvilleNumber {
   return toNashville(candidate.root, candidate.quality, keyTonic, options, candidate.bass);
+}
+
+/**
+ * Stage display number for the lowest sounding note. Accidentals and chord
+ * quality are intentionally removed, leaving one calm scale number from 1–7.
+ * The full chord remains available separately through chord detection.
+ */
+export function simpleBassNumberForCandidate(candidate: ChordCandidate, keyTonic: PitchClass): string {
+  const bass = candidate.bass ?? candidate.root;
+  return degreeName(bass - keyTonic, "auto").replace(/[♭♯]/g, "");
+}
+
+/**
+ * Stage-display number taken straight from the physical bass register.
+ *
+ * This intentionally does not depend on chord detection: a low sustained root
+ * remains the displayed foundation while the right hand adds melody notes or
+ * wider voicings above it. Octave doubles naturally collapse to one pitch
+ * class, so C1, C2 and C5 all produce the same Nashville number.
+ */
+export function simpleBassNumberForMidiNote(bassMidiNote: number, keyTonic: PitchClass): string {
+  return degreeName(toPitchClass(bassMidiNote) - keyTonic, "auto").replace(/[♭♯]/g, "");
 }

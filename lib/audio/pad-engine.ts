@@ -4,7 +4,7 @@
  * Signal flow:
  *
  *   source A ─ keyGain A ─┐
- *                         ├─ toneFilter ─ padPanner ─ padBus ─┬─ dryGain ───────────────────┐
+ *                         ├─ toneFilter ─ brightness ─ pan ─ M/S width ─ padBus ─┬─ dryGain ─┐
  *   source B ─ keyGain B ─┘                                    └─ shimmerSend ─ shimmer ─────┤
  *                                                                                            │
  *   motion LFO ─ depth ─▶ toneFilter.detune / padPanner.pan / shimmerSend.gain               │
@@ -54,6 +54,8 @@ export type PadEngineOptions = {
   onError?: (error: { code: string; message: string }) => void;
 };
 
+export type AudioActionResult = { ok: true } | { ok: false; reason: string };
+
 /** Slider ranges, all clamped inside the engine so the UI cannot exceed them. */
 export const PAD_LIMITS = {
   fadeSeconds: { min: 0.5, max: 20, default: 4 },
@@ -62,13 +64,57 @@ export const PAD_LIMITS = {
   /** Crescendo lifts a few dB at most — never enough to pump the limiter. */
   crescendoMaxGainDb: 5,
   shimmerFeedbackMax: 0.34,
-  motionHz: { min: 0.02, max: 0.8 },
+  // 67-second breath at the bottom, roughly 3 seconds at the top.
+  motionHz: { min: 0.015, max: 0.32 },
 } as const;
 
 const VOLUME_RAMP_SECONDS = 0.035;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+export function brightnessPercentToDb(percent: number): number {
+  const safePercent = clamp(percent, 0, 100);
+  // Keep the warm 42% default truly neutral. The asymmetric range gives the
+  // dark half enough attenuation and the bright half enough air to remain
+  // audible after the main Tone low-pass without becoming brittle.
+  if (safePercent <= 42) return -12 + (safePercent / 42) * 12;
+  return ((safePercent - 42) / 58) * 9;
+}
+
+export function widthPercentToSideGain(percent: number): number {
+  const safePercent = clamp(percent, 0, 100);
+  // 50% preserves the source exactly. The lower half can now reach true mono,
+  // while the upper half makes the already spacious Sound Walls clearly wider.
+  if (safePercent <= 50) return safePercent / 50;
+  return 1 + ((safePercent - 50) / 50) * 0.8;
+}
+
+/** Exponential mapping keeps the slow half useful instead of bunching it up. */
+export function motionFrequencyForPercent(percent: number): number {
+  const normalised = clamp(percent, 0, 100) / 100;
+  return PAD_LIMITS.motionHz.min * Math.pow(PAD_LIMITS.motionHz.max / PAD_LIMITS.motionHz.min, normalised);
+}
+
+export function motionBarsForPercent(percent: number): 16 | 8 | 4 {
+  if (percent <= 35) return 16;
+  if (percent <= 70) return 8;
+  return 4;
+}
+
+export function tempoSyncedMotionFrequency(
+  percent: number,
+  bpm: number,
+  beatsPerBar: number,
+  beatUnit = 4,
+): number {
+  const safeBpm = clamp(bpm, 20, 300);
+  const safeBeats = clamp(beatsPerBar, 1, 32);
+  const safeBeatUnit = clamp(beatUnit, 2, 16);
+  const beatSeconds = (60 / safeBpm) * (4 / safeBeatUnit);
+  const cycleSeconds = motionBarsForPercent(percent) * safeBeats * beatSeconds;
+  return 1 / cycleSeconds;
 }
 
 /** Procedural reverb impulse: exponentially decaying stereo noise. */
@@ -89,6 +135,7 @@ type Voice = {
   source: AudioBufferSourceNode;
   gain: GainNode;
   pitchClass: PitchClass;
+  assetUrl: string;
 };
 
 export class PadEngine {
@@ -97,7 +144,14 @@ export class PadEngine {
 
   // Graph nodes, created once the context exists.
   private toneFilter: BiquadFilterNode | null = null;
+  private brightnessFilter: BiquadFilterNode | null = null;
   private padPanner: StereoPannerNode | null = null;
+  private widthSplitter: ChannelSplitterNode | null = null;
+  private widthMerger: ChannelMergerNode | null = null;
+  private widthLToL: GainNode | null = null;
+  private widthRToL: GainNode | null = null;
+  private widthLToR: GainNode | null = null;
+  private widthRToR: GainNode | null = null;
   private padBus: GainNode | null = null;
   private dryGain: GainNode | null = null;
   private shimmerSend: GainNode | null = null;
@@ -114,6 +168,7 @@ export class PadEngine {
   private motionToneDepth: GainNode | null = null;
   private motionPanDepth: GainNode | null = null;
   private motionShimmerDepth: GainNode | null = null;
+  private motionBreathDepth: GainNode | null = null;
 
   private currentVoice: Voice | null = null;
   private incomingVoice: Voice | null = null;
@@ -124,10 +179,15 @@ export class PadEngine {
   private crescendoActive = false;
 
   // Stored parameters. These are the source of truth; automation targets them.
-  private mainVolumePercent = 70;
-  private shimmerPercent = 25;
-  private tonePercent = 55;
-  private motionPercent = 30;
+  private mainVolumePercent = 62;
+  private shimmerPercent = 12;
+  private tonePercent = 44;
+  private brightnessPercent = 42;
+  private widthPercent = 50;
+  private motionPercent = 18;
+  private motionTempoBpm = 60;
+  private motionBeatsPerBar = 4;
+  private motionBeatUnit = 4;
   private sinkLabel = "System default";
   private shimmerMode: "worklet" | "reverb-only" = "reverb-only";
 
@@ -177,7 +237,19 @@ export class PadEngine {
     this.toneFilter.type = "lowpass";
     this.toneFilter.Q.value = 0.6;
 
+    this.brightnessFilter = context.createBiquadFilter();
+    this.brightnessFilter.type = "highshelf";
+    // The Sound Walls are intentionally dark. Starting the shelf lower keeps
+    // Brightness effective even when Tone is near its warm default cutoff.
+    this.brightnessFilter.frequency.value = 1100;
+
     this.padPanner = context.createStereoPanner();
+    this.widthSplitter = context.createChannelSplitter(2);
+    this.widthMerger = context.createChannelMerger(2);
+    this.widthLToL = context.createGain();
+    this.widthRToL = context.createGain();
+    this.widthLToR = context.createGain();
+    this.widthRToR = context.createGain();
     this.padBus = context.createGain();
     this.dryGain = context.createGain();
     this.shimmerSend = context.createGain();
@@ -201,8 +273,18 @@ export class PadEngine {
     this.crescendoGain.gain.value = 1;
     this.dryGain.gain.value = 1;
 
-    this.toneFilter.connect(this.padPanner);
-    this.padPanner.connect(this.padBus);
+    this.toneFilter.connect(this.brightnessFilter);
+    this.brightnessFilter.connect(this.padPanner);
+    this.padPanner.connect(this.widthSplitter);
+    this.widthSplitter.connect(this.widthLToL, 0);
+    this.widthSplitter.connect(this.widthLToR, 0);
+    this.widthSplitter.connect(this.widthRToL, 1);
+    this.widthSplitter.connect(this.widthRToR, 1);
+    this.widthLToL.connect(this.widthMerger, 0, 0);
+    this.widthRToL.connect(this.widthMerger, 0, 0);
+    this.widthLToR.connect(this.widthMerger, 0, 1);
+    this.widthRToR.connect(this.widthMerger, 0, 1);
+    this.widthMerger.connect(this.padBus);
     this.padBus.connect(this.dryGain);
     this.padBus.connect(this.shimmerSend);
     this.dryGain.connect(this.fadeGain);
@@ -225,6 +307,8 @@ export class PadEngine {
     this.buildShimmerReverb(context);
     this.buildMotion(context);
     this.applyTone();
+    this.applyBrightness();
+    this.applyWidth();
     this.applyShimmer();
     this.applyMotion();
   }
@@ -291,7 +375,7 @@ export class PadEngine {
   }
 
   private buildMotion(context: AudioContext): void {
-    if (!this.toneFilter || !this.padPanner || !this.shimmerSend) return;
+    if (!this.toneFilter || !this.padPanner || !this.shimmerSend || !this.padBus) return;
     const lfo = context.createOscillator();
     lfo.type = "sine";
     lfo.frequency.value = PAD_LIMITS.motionHz.min;
@@ -299,16 +383,20 @@ export class PadEngine {
     this.motionToneDepth = context.createGain();
     this.motionPanDepth = context.createGain();
     this.motionShimmerDepth = context.createGain();
+    this.motionBreathDepth = context.createGain();
     this.motionToneDepth.gain.value = 0;
     this.motionPanDepth.gain.value = 0;
     this.motionShimmerDepth.gain.value = 0;
+    this.motionBreathDepth.gain.value = 0;
 
     lfo.connect(this.motionToneDepth);
     lfo.connect(this.motionPanDepth);
     lfo.connect(this.motionShimmerDepth);
+    lfo.connect(this.motionBreathDepth);
     this.motionToneDepth.connect(this.toneFilter.detune);
     this.motionPanDepth.connect(this.padPanner.pan);
     this.motionShimmerDepth.connect(this.shimmerSend.gain);
+    this.motionBreathDepth.connect(this.padBus.gain);
     lfo.start();
     this.motionLfo = lfo;
   }
@@ -321,6 +409,7 @@ export class PadEngine {
       // Already stopped.
     }
     this.motionLfo?.disconnect();
+    this.motionBreathDepth?.disconnect();
     this.shimmerWorklet?.disconnect();
     await this.context?.close();
     this.context = null;
@@ -338,8 +427,16 @@ export class PadEngine {
     return this.preset;
   }
 
+  resolveAssetForTempo(asset: PadKeyAsset): PadKeyAsset {
+    const variant = [...(asset.tempoVariants ?? [])]
+      .sort((left, right) => left.maxBpm - right.maxBpm)
+      .find((entry) => this.motionTempoBpm <= entry.maxBpm);
+    return variant ? { ...asset, ...variant, tempoVariants: asset.tempoVariants } : asset;
+  }
+
   private assetFor(pitchClass: PitchClass): PadKeyAsset | null {
-    return this.preset?.keys.find((key) => key.pitchClass === pitchClass) ?? null;
+    const asset = this.preset?.keys.find((key) => key.pitchClass === pitchClass);
+    return asset ? this.resolveAssetForTempo(asset) : null;
   }
 
   isKeyReady(pitchClass: PitchClass): boolean {
@@ -366,7 +463,7 @@ export class PadEngine {
     gain.connect(this.toneFilter);
     source.start();
 
-    return { source, gain, pitchClass };
+    return { source, gain, pitchClass, assetUrl: asset.url };
   }
 
   private disposeVoice(voice: Voice, at: number): void {
@@ -388,12 +485,15 @@ export class PadEngine {
    * Calling this during a fade-out reverses the fade from its current level
    * rather than starting a second copy of the pad.
    */
-  async fadeIn(pitchClass: PitchClass, options: PadEnvelopeOptions = { durationSeconds: PAD_LIMITS.fadeSeconds.default }): Promise<void> {
+  async fadeIn(
+    pitchClass: PitchClass,
+    options: PadEnvelopeOptions = { durationSeconds: PAD_LIMITS.fadeSeconds.default },
+  ): Promise<AudioActionResult> {
     const context = await this.initialise();
     const asset = this.assetFor(pitchClass);
     if (!asset || !this.preset || !this.loader || !this.fadeGain) {
       this.options.onError?.({ code: "no-asset", message: "This key is not available in the current pad pack." });
-      return;
+      return { ok: false, reason: "This key is not available in the current pad pack." };
     }
 
     let buffer: AudioBuffer;
@@ -404,7 +504,7 @@ export class PadEngine {
         code: "decode-failed",
         message: error instanceof Error ? error.message : "The pad audio could not be decoded.",
       });
-      return;
+      return { ok: false, reason: error instanceof Error ? error.message : "The pad audio could not be decoded." };
     }
 
     const duration = clamp(options.durationSeconds, PAD_LIMITS.fadeSeconds.min, PAD_LIMITS.fadeSeconds.max);
@@ -412,8 +512,7 @@ export class PadEngine {
 
     if (this.currentVoice && this.currentVoice.pitchClass !== pitchClass) {
       // A different key is already running: this is a crossfade, not a fade-in.
-      await this.crossfadeTo(pitchClass, duration);
-      return;
+      return this.crossfadeTo(pitchClass, duration);
     }
 
     if (!this.currentVoice) {
@@ -425,6 +524,7 @@ export class PadEngine {
     this.scheduleFade(from, to, now, duration, options.curve ?? "equal-power");
     this.setState("fading-in");
     this.afterAutomation(duration, () => this.setState("playing"));
+    return { ok: true };
   }
 
   /** Fades from the current level to silence, then releases the source node. */
@@ -479,16 +579,22 @@ export class PadEngine {
    * Equal-power crossfade into another key. The outgoing source is only
    * stopped after the automation has actually finished.
    */
-  async crossfadeTo(pitchClass: PitchClass, seconds: number = PAD_LIMITS.crossfadeSeconds.default): Promise<void> {
+  async crossfadeTo(
+    pitchClass: PitchClass,
+    seconds: number = PAD_LIMITS.crossfadeSeconds.default,
+  ): Promise<AudioActionResult> {
     const context = await this.initialise();
     const asset = this.assetFor(pitchClass);
-    if (!asset || !this.preset || !this.loader) return;
+    if (!asset || !this.preset || !this.loader) {
+      return { ok: false, reason: "The target key is not available in the current pad pack." };
+    }
 
     if (!this.currentVoice) {
-      await this.fadeIn(pitchClass, { durationSeconds: PAD_LIMITS.fadeSeconds.default });
-      return;
+      return this.fadeIn(pitchClass, { durationSeconds: PAD_LIMITS.fadeSeconds.default });
     }
-    if (this.currentVoice.pitchClass === pitchClass && !this.incomingVoice) return;
+    if (this.currentVoice.pitchClass === pitchClass && this.currentVoice.assetUrl === asset.url && !this.incomingVoice) {
+      return { ok: true };
+    }
 
     let buffer: AudioBuffer;
     try {
@@ -498,7 +604,7 @@ export class PadEngine {
         code: "target-not-ready",
         message: error instanceof Error ? error.message : "The target pad is not ready yet.",
       });
-      return;
+      return { ok: false, reason: error instanceof Error ? error.message : "The target pad is not ready yet." };
     }
 
     // A crossfade that arrives during another crossfade collapses the previous
@@ -542,6 +648,7 @@ export class PadEngine {
       if (this.state === "stopped") this.setState("playing");
       this.emit();
     });
+    return { ok: true };
   }
 
   /* ------------------------------------------------------- crescendo (13.3) */
@@ -636,6 +743,102 @@ export class PadEngine {
     this.applyTone();
   }
 
+  get brightness(): number {
+    return this.brightnessPercent;
+  }
+
+  setBrightness(percent: number): void {
+    this.brightnessPercent = clamp(Math.round(percent), 0, 100);
+    this.applyBrightness();
+  }
+
+  /** Linearly opens or closes the presence band without touching shimmer. */
+  rampBrightness(percent: number, durationSeconds: number): void {
+    this.brightnessPercent = clamp(Math.round(percent), 0, 100);
+    const context = this.context;
+    if (!context || !this.brightnessFilter) return;
+    const now = context.currentTime;
+    const end = now + Math.max(0.05, durationSeconds);
+    this.brightnessFilter.gain.cancelScheduledValues(now);
+    this.brightnessFilter.gain.setValueAtTime(this.brightnessFilter.gain.value, now);
+    this.brightnessFilter.gain.linearRampToValueAtTime(brightnessPercentToDb(this.brightnessPercent), end);
+  }
+
+  static brightnessLabel(percent: number): "Soft" | "Warm" | "Airy" | "Bright" {
+    if (percent < 30) return "Soft";
+    if (percent < 58) return "Warm";
+    if (percent < 82) return "Airy";
+    return "Bright";
+  }
+
+  private applyBrightness(): void {
+    const context = this.context;
+    if (!context || !this.brightnessFilter) return;
+    const gainDb = brightnessPercentToDb(this.brightnessPercent);
+    const now = context.currentTime;
+    this.brightnessFilter.gain.cancelScheduledValues(now);
+    this.brightnessFilter.gain.setValueAtTime(this.brightnessFilter.gain.value, now);
+    this.brightnessFilter.gain.setTargetAtTime(gainDb, now, 0.08);
+  }
+
+  get width(): number {
+    return this.widthPercent;
+  }
+
+  setWidth(percent: number): void {
+    this.widthPercent = clamp(Math.round(percent), 0, 100);
+    this.applyWidth();
+  }
+
+  /** Linearly widens or narrows the mid/side matrix while retaining its centre. */
+  rampWidth(percent: number, durationSeconds: number): void {
+    this.widthPercent = clamp(Math.round(percent), 0, 100);
+    const context = this.context;
+    if (!context || !this.widthLToL || !this.widthRToL || !this.widthLToR || !this.widthRToR) return;
+    const side = widthPercentToSideGain(this.widthPercent);
+    const same = (1 + side) / 2;
+    const cross = (1 - side) / 2;
+    const now = context.currentTime;
+    const end = now + Math.max(0.05, durationSeconds);
+    for (const [node, value] of [
+      [this.widthLToL, same],
+      [this.widthRToR, same],
+      [this.widthRToL, cross],
+      [this.widthLToR, cross],
+    ] as const) {
+      node.gain.cancelScheduledValues(now);
+      node.gain.setValueAtTime(node.gain.value, now);
+      node.gain.linearRampToValueAtTime(value, end);
+    }
+  }
+
+  static widthLabel(percent: number): "Focused" | "Natural" | "Wide" | "Immersive" {
+    if (percent < 28) return "Focused";
+    if (percent < 58) return "Natural";
+    if (percent < 82) return "Wide";
+    return "Immersive";
+  }
+
+  /** Mid/side width with bounded side gain, retaining a stable mono centre. */
+  private applyWidth(): void {
+    const context = this.context;
+    if (!context || !this.widthLToL || !this.widthRToL || !this.widthLToR || !this.widthRToR) return;
+    const side = widthPercentToSideGain(this.widthPercent);
+    const same = (1 + side) / 2;
+    const cross = (1 - side) / 2;
+    const now = context.currentTime;
+    for (const [node, value] of [
+      [this.widthLToL, same],
+      [this.widthRToR, same],
+      [this.widthRToL, cross],
+      [this.widthLToR, cross],
+    ] as const) {
+      node.gain.cancelScheduledValues(now);
+      node.gain.setValueAtTime(node.gain.value, now);
+      node.gain.setTargetAtTime(value, now, 0.08);
+    }
+  }
+
   /** Maps the Tone slider to a cutoff, logarithmically from dark to open. */
   private toneFrequency(): number {
     const min = 320;
@@ -663,6 +866,20 @@ export class PadEngine {
     this.applyMotion();
   }
 
+  setTempo(bpm: number, beatsPerBar = 4, beatUnit = 4, adaptActiveVoice = true): void {
+    const previousBpm = this.motionTempoBpm;
+    this.motionTempoBpm = clamp(bpm, 20, 300);
+    this.motionBeatsPerBar = clamp(Math.round(beatsPerBar), 1, 32);
+    this.motionBeatUnit = clamp(Math.round(beatUnit), 2, 16);
+    this.applyMotion();
+    if (adaptActiveVoice && previousBpm !== this.motionTempoBpm && this.currentVoice && !this.incomingVoice) {
+      const nextAsset = this.assetFor(this.currentVoice.pitchClass);
+      if (nextAsset && nextAsset.url !== this.currentVoice.assetUrl) {
+        void this.crossfadeTo(this.currentVoice.pitchClass, 1.25);
+      }
+    }
+  }
+
   /** Human label for the Motion slider (spec 8.5). */
   static motionLabel(percent: number): "Still" | "Slow" | "Flowing" | "Fast" {
     if (percent <= 0) return "Still";
@@ -673,17 +890,31 @@ export class PadEngine {
 
   private applyMotion(): void {
     const context = this.context;
-    if (!context || !this.motionLfo || !this.motionToneDepth || !this.motionPanDepth || !this.motionShimmerDepth) return;
+    if (
+      !context ||
+      !this.motionLfo ||
+      !this.motionToneDepth ||
+      !this.motionPanDepth ||
+      !this.motionShimmerDepth ||
+      !this.motionBreathDepth
+    ) return;
     const now = context.currentTime;
     const amount = this.motionPercent / 100;
-    const hz = PAD_LIMITS.motionHz.min + amount * (PAD_LIMITS.motionHz.max - PAD_LIMITS.motionHz.min);
+    const hz = tempoSyncedMotionFrequency(
+      this.motionPercent,
+      this.motionTempoBpm,
+      this.motionBeatsPerBar,
+      this.motionBeatUnit,
+    );
 
-    this.motionLfo.frequency.setTargetAtTime(hz, now, 0.4);
-    // Depths are modest by design: motion should be noticed over half a minute,
-    // not read as an effect.
-    this.motionToneDepth.gain.setTargetAtTime(amount * 900, now, 0.3);
-    this.motionPanDepth.gain.setTargetAtTime(amount * 0.28, now, 0.3);
-    this.motionShimmerDepth.gain.setTargetAtTime(amount * (this.shimmerPercent / 100) * 0.12, now, 0.3);
+    this.motionLfo.frequency.setTargetAtTime(hz, now, 0.6);
+    // Speed is the main gesture. The restrained depths only make that speed
+    // audible; they never touch source playbackRate, loop length or pitch.
+    this.motionToneDepth.gain.setTargetAtTime(amount * 700, now, 0.3);
+    this.motionPanDepth.gain.setTargetAtTime(amount * 0.22, now, 0.3);
+    this.motionShimmerDepth.gain.setTargetAtTime(amount * (this.shimmerPercent / 100) * 0.1, now, 0.3);
+    const breath = amount === 0 ? 0 : 0.02 + amount * 0.06;
+    this.motionBreathDepth.gain.setTargetAtTime(breath, now, 0.3);
   }
 
   /* ------------------------------------------------------------ audio output */

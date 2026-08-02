@@ -18,6 +18,7 @@ export function SliderField({
   hint,
   defaultValue,
   onReset,
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -31,6 +32,7 @@ export function SliderField({
   hint?: string;
   defaultValue?: number;
   onReset?: () => void;
+  disabled?: boolean;
 }) {
   const id = `slider-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   const atDefault = defaultValue != null && Math.abs(value - defaultValue) < step / 2;
@@ -57,6 +59,7 @@ export function SliderField({
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         aria-valuetext={`${value}${unit}${hint ? ` ${hint}` : ""}`}
+        disabled={disabled}
       />
       {defaultValue != null && onReset ? (
         <button

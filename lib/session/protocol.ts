@@ -10,6 +10,7 @@
  */
 
 import { z } from "zod";
+import { setlistSchema, songSchema } from "../storage/schema.ts";
 
 export type SessionRole = "host" | "leader" | "viewer";
 
@@ -28,6 +29,21 @@ export const transcriptSegmentSchema = z.object({
 
 export type TranscriptSegment = z.infer<typeof transcriptSegmentSchema>;
 
+export const livePadSettingsSchema = z.object({
+  mainVolume: z.number().min(0).max(100),
+  shimmer: z.number().min(0).max(100),
+  tone: z.number().min(0).max(100),
+  brightness: z.number().min(0).max(100).default(42),
+  width: z.number().min(0).max(100).default(50),
+  motion: z.number().min(0).max(100),
+  fadeInSeconds: z.number().min(0.5).max(20),
+  fadeOutSeconds: z.number().min(0.5).max(20),
+  crossfadeSeconds: z.number().min(1).max(12),
+  crescendoSeconds: z.number().min(1).max(20),
+});
+
+export type LivePadSettings = z.infer<typeof livePadSettingsSchema>;
+
 export const snapshotSchema = z.object({
   sessionId: z.string(),
   sessionName: z.string(),
@@ -35,6 +51,7 @@ export const snapshotSchema = z.object({
   serverTime: z.number(),
   hostOnline: z.boolean(),
   remoteControlLocked: z.boolean(),
+  joinsLocked: z.boolean(),
   activeSong: z
     .object({
       id: z.string(),
@@ -44,6 +61,7 @@ export const snapshotSchema = z.object({
       total: z.number(),
     })
     .nullable(),
+  setlist: setlistSchema.optional(),
   concertKey: z.string(),
   mode: z.enum(["major", "minor"]),
   timeSignature: z.string(),
@@ -51,9 +69,14 @@ export const snapshotSchema = z.object({
   detectedChord: z.string().optional(),
   nashville: z.string().optional(),
   chordConfidence: z.number().optional(),
+  midiPressed: z.array(z.number().int().min(0).max(127)).default([]),
+  midiSustained: z.array(z.number().int().min(0).max(127)).default([]),
+  midiDeviceName: z.string().optional(),
   preparedKey: z.string().optional(),
   transitionState: z.enum(["idle", "armed", "crescendo", "transitioning"]),
   padState: z.enum(["stopped", "fading-in", "playing", "fading-out"]),
+  padSettings: livePadSettingsSchema,
+  muted: z.boolean(),
   transcript: z.array(transcriptSegmentSchema),
 });
 
@@ -67,12 +90,28 @@ export function createEmptySnapshot(sessionId: string, sessionName: string): Liv
     serverTime: Date.now(),
     hostOnline: false,
     remoteControlLocked: false,
+    joinsLocked: false,
     activeSong: null,
     concertKey: "C Major",
     mode: "major",
     timeSignature: "4/4",
+    midiPressed: [],
+    midiSustained: [],
     transitionState: "idle",
     padState: "stopped",
+    padSettings: {
+      mainVolume: 62,
+      shimmer: 100,
+      tone: 100,
+      brightness: 0,
+      width: 0,
+      motion: 18,
+      fadeInSeconds: 4,
+      fadeOutSeconds: 4,
+      crossfadeSeconds: 4,
+      crescendoSeconds: 6,
+    },
+    muted: false,
     transcript: [],
   };
 }
@@ -84,6 +123,13 @@ export const leaderCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("select-song"), songId: z.string() }),
   z.object({ type: z.literal("next-song") }),
   z.object({ type: z.literal("previous-song") }),
+  z.object({ type: z.literal("set-bpm"), bpm: z.number().int().min(40).max(180) }),
+  z.object({ type: z.literal("add-song"), song: songSchema }),
+  z.object({ type: z.literal("update-song"), song: songSchema }),
+  z.object({ type: z.literal("remove-song"), songId: z.string().min(1) }),
+  z.object({ type: z.literal("duplicate-song"), songId: z.string().min(1) }),
+  z.object({ type: z.literal("rename-setlist"), name: z.string().min(1).max(120) }),
+  z.object({ type: z.literal("replace-setlist"), setlist: setlistSchema }),
   z.object({ type: z.literal("set-key"), tonic: z.number().int().min(0).max(11), mode: z.enum(["major", "minor"]) }),
   z.object({ type: z.literal("prepare"), tonic: z.number().int().min(0).max(11), mode: z.enum(["major", "minor"]) }),
   z.object({ type: z.literal("cancel-preparation") }),
@@ -92,6 +138,8 @@ export const leaderCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("fade-in") }),
   z.object({ type: z.literal("fade-out") }),
   z.object({ type: z.literal("stop-pads") }),
+  z.object({ type: z.literal("set-pad-settings"), patch: livePadSettingsSchema.partial() }),
+  z.object({ type: z.literal("set-muted"), muted: z.boolean() }),
 ]);
 
 export type LeaderCommand = z.infer<typeof leaderCommandSchema>;
@@ -157,7 +205,7 @@ export type ServerMessage =
   | { type: "error"; message: string };
 
 /** How long a forwarded command may wait for the host before it is refused. */
-export const HOST_ACK_TIMEOUT_MS = 2500;
+export const HOST_ACK_TIMEOUT_MS = 8000;
 export const HEARTBEAT_INTERVAL_MS = 3000;
 /** Viewers mark their data stale after this long without an update. */
 export const STALE_AFTER_MS = 6000;

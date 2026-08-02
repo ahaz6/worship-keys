@@ -47,6 +47,9 @@ export type SessionOptions = {
 
 /** How many processed message ids to remember for idempotency. */
 const SEEN_MESSAGE_LIMIT = 512;
+const PIN_ATTEMPT_LIMIT = 5;
+const PIN_ATTEMPT_WINDOW_MS = 60_000;
+const PIN_LOCK_MS = 60_000;
 
 export class SessionStore {
   readonly sessionId = randomToken(9);
@@ -62,6 +65,7 @@ export class SessionStore {
   private readonly seenMessages = new Set<string>();
   private leaderLease: LeaderLease | null = null;
   private joinsLocked = false;
+  private readonly pinAttempts = new Map<string, { count: number; windowStartedAt: number; lockedUntil: number }>();
   private readonly allowMultipleLeaders: boolean;
   private readonly now: () => number;
 
@@ -91,6 +95,8 @@ export class SessionStore {
       // These four are owned by the server, never by a client patch.
       sessionId: this.snapshot.sessionId,
       transcript,
+      remoteControlLocked: this.snapshot.remoteControlLocked,
+      joinsLocked: this.snapshot.joinsLocked,
       revision: this.snapshot.revision + 1,
       serverTime: this.now(),
     };
@@ -109,7 +115,8 @@ export class SessionStore {
   }
 
   setRemoteControlLocked(locked: boolean): LiveSessionSnapshot {
-    return this.applyHostState({ remoteControlLocked: locked });
+    this.snapshot = { ...this.snapshot, remoteControlLocked: locked };
+    return this.applyHostState({});
   }
 
   /* --------------------------------------------------------------- devices */
@@ -120,6 +127,8 @@ export class SessionStore {
 
   setJoinsLocked(locked: boolean): void {
     this.joinsLocked = locked;
+    this.snapshot = { ...this.snapshot, joinsLocked: locked };
+    this.applyHostState({});
   }
 
   get pin(): string {
@@ -131,6 +140,7 @@ export class SessionStore {
     this.leaderPin = generateLeaderPin();
     this.leaderPinHash = hashPin(this.leaderPin);
     this.leaderLease = null;
+    this.pinAttempts.clear();
     for (const device of this.devices.values()) {
       if (device.role === "leader") device.role = "viewer";
     }
@@ -161,6 +171,7 @@ export class SessionStore {
       const existing = [...this.devices.values()].find((device) => device.token === token);
       if (existing) {
         existing.lastSeen = this.now();
+        if (deviceName.trim()) existing.name = deviceName.trim();
         return { deviceId: existing.deviceId, role: existing.role, token: existing.token };
       }
       return { error: "This join link is no longer valid. Scan the QR code again." };
@@ -205,9 +216,28 @@ export class SessionStore {
   requestLeaderRole(deviceId: string, pin: string): { status: "granted" | "needs-host-approval" | "rejected"; reason?: string } {
     const device = this.devices.get(deviceId);
     if (!device) return { status: "rejected", reason: "Unknown device." };
-    if (!verifyPin(pin, this.leaderPinHash)) return { status: "rejected", reason: "That leader PIN is not correct." };
+    const now = this.now();
+    const attempt = this.pinAttempts.get(deviceId);
+    if (attempt && attempt.lockedUntil > now) {
+      return { status: "rejected", reason: "Too many incorrect attempts. Wait one minute and try again." };
+    }
+    if (!verifyPin(pin, this.leaderPinHash)) {
+      const current = !attempt || now - attempt.windowStartedAt >= PIN_ATTEMPT_WINDOW_MS
+        ? { count: 0, windowStartedAt: now, lockedUntil: 0 }
+        : attempt;
+      current.count += 1;
+      if (current.count >= PIN_ATTEMPT_LIMIT) current.lockedUntil = now + PIN_LOCK_MS;
+      this.pinAttempts.set(deviceId, current);
+      return {
+        status: "rejected",
+        reason: current.lockedUntil > now
+          ? "Too many incorrect attempts. Wait one minute and try again."
+          : "That leader PIN is not correct.",
+      };
+    }
+    this.pinAttempts.delete(deviceId);
 
-    const outcome = requestLeader(this.leaderLease, deviceId, this.now(), {
+    const outcome = requestLeader(this.leaderLease, deviceId, now, {
       allowMultipleLeaders: this.allowMultipleLeaders,
     });
 
@@ -274,7 +304,12 @@ export class SessionStore {
       return { status: "denied", reason: "Leader access has moved to another device." };
     }
 
-    if (expectedRevision !== this.snapshot.revision) {
+    // Live sound controls carry absolute values, not relative edits. They are
+    // safe to apply against a newer chord/snapshot revision and must remain
+    // fluid while the host is publishing MIDI detection updates.
+    const isAbsoluteSoundControl =
+      command.type === "set-pad-settings" || command.type === "set-muted" || command.type === "set-bpm";
+    if (expectedRevision !== this.snapshot.revision && !isAbsoluteSoundControl) {
       return { status: "stale", revision: this.snapshot.revision };
     }
 

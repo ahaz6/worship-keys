@@ -32,23 +32,27 @@ export function useSession() {
   const [message, setMessage] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState(() => Date.now());
   const [age, setAge] = useState(0);
+  const rejectedRef = useRef(false);
 
   const runCommandRef = useRef<((messageId: string, command: LeaderCommand) => void) | null>(null);
-  const [inboundCommand, setInboundCommand] = useState<{ messageId: string; command: LeaderCommand } | null>(null);
-
+  // The ref is read only later from the WebSocket event callback, never while
+  // React is rendering this initializer.
+  // eslint-disable-next-line react-hooks/refs
   const [connection] = useState(() => {
     // The closure needs the instance itself so a rejected token can stop the
     // reconnect loop from inside the message handler.
     const created: SessionConnection = new SessionConnection({
       onStatus: (next) => {
-        setStatus((current) => {
-          if (current === "rejected") return current;
-          return next === "closed" ? "idle" : next;
-        });
+        // giveUp() closes a revoked connection intentionally. Do not let that
+        // final close event erase the rejected state before the join screen can
+        // clear its persisted device identity.
+        if (next === "closed" && rejectedRef.current) return;
+        setStatus(next === "closed" ? "idle" : next);
       },
       onMessage: (parsed) => {
           switch (parsed.type) {
             case "welcome":
+              rejectedRef.current = false;
               setRole(parsed.role);
               setDeviceId(parsed.deviceId);
               setDeviceToken(parsed.deviceToken);
@@ -69,8 +73,10 @@ export function useSession() {
               if (!parsed.applied && parsed.reason) setMessage(parsed.reason);
               break;
             case "run-command":
-              // Handed to an effect below so the handler runs outside render.
-              setInboundCommand({ messageId: parsed.messageId, command: parsed.command });
+              // Do not funnel rapid slider messages through React state: two
+              // frames arriving before a render would otherwise collapse into
+              // one and the host would miss part of the live gesture.
+              runCommandRef.current?.(parsed.messageId, parsed.command);
               break;
             case "role-changed":
               setRole(parsed.role);
@@ -83,6 +89,7 @@ export function useSession() {
               setMessage(parsed.message);
               // A rejected token must not turn into an endless reconnect loop.
               if (/no longer valid|removed|locked/.test(parsed.message)) {
+                rejectedRef.current = true;
                 created.giveUp();
                 setStatus("rejected");
               }
@@ -92,11 +99,6 @@ export function useSession() {
     });
     return created;
   });
-
-  useEffect(() => {
-    if (!inboundCommand) return;
-    runCommandRef.current?.(inboundCommand.messageId, inboundCommand.command);
-  }, [inboundCommand]);
 
   // The socket needs the newest revision to stamp outgoing commands with.
   useEffect(() => {
@@ -110,7 +112,13 @@ export function useSession() {
 
   useEffect(() => () => connection.disconnect(), [connection]);
 
-  const connect = useCallback((token: string, deviceName: string) => connection.connect(token, deviceName), [connection]);
+  const connect = useCallback(
+    (token: string, deviceName: string) => {
+      rejectedRef.current = false;
+      connection.connect(token, deviceName);
+    },
+    [connection],
+  );
   const disconnect = useCallback(() => connection.disconnect(), [connection]);
 
   const sendCommand = useCallback(
@@ -134,6 +142,7 @@ export function useSession() {
   const onRunCommand = useCallback((handler: ((messageId: string, command: LeaderCommand) => void) | null) => {
     runCommandRef.current = handler;
   }, []);
+  const dismissMessage = useCallback(() => setMessage(null), []);
 
   return {
     status,
@@ -153,6 +162,7 @@ export function useSession() {
     sendHostState,
     acknowledge,
     onRunCommand,
+    dismissMessage,
   };
 }
 

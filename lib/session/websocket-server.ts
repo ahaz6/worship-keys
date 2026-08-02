@@ -41,6 +41,8 @@ export type SessionServer = {
   store: SessionStore;
   handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer): void;
   broadcastSnapshot(): void;
+  broadcastDevices(): void;
+  syncRoles(reason: string): void;
   close(): void;
 };
 
@@ -67,6 +69,18 @@ export function createSessionServer(httpServer: HttpServer, store: SessionStore)
 
   const broadcastDevices = (): void => {
     broadcast({ type: "devices", devices: store.listDevices() }, (connection) => connection.role === "host");
+  };
+
+  const syncRoles = (reason: string): void => {
+    for (const connection of connections) {
+      if (!connection.deviceId) continue;
+      const role = store.getDevice(connection.deviceId)?.role;
+      if (!role || role === connection.role) continue;
+      connection.role = role;
+      send(connection.socket, { type: "role-changed", role, reason });
+    }
+    broadcastDevices();
+    broadcastSnapshot();
   };
 
   const hostConnection = (): Connection | null =>
@@ -275,8 +289,10 @@ export function createSessionServer(httpServer: HttpServer, store: SessionStore)
       connections.delete(connection);
       if (connection.role === "host") {
         // Host audio keeps running locally; only the session view changes.
-        store.setHostOnline(false);
-        broadcastSnapshot();
+        if (!hostConnection()) {
+          store.setHostOnline(false);
+          broadcastSnapshot();
+        }
       }
       broadcastDevices();
     });
@@ -303,6 +319,8 @@ export function createSessionServer(httpServer: HttpServer, store: SessionStore)
     store,
     handleUpgrade,
     broadcastSnapshot,
+    broadcastDevices,
+    syncRoles,
     close() {
       clearInterval(heartbeat);
       for (const entry of pending.values()) clearTimeout(entry.timer);

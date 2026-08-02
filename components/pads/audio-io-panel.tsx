@@ -30,9 +30,12 @@ export function AudioIoPanel({
   voiceChannels,
   voiceUsesSelectedTrack,
   outputLabel,
+  outputDevices,
+  outputDeviceId,
   canChooseOutput,
   outputHelp,
   onChooseOutput,
+  onSelectOutput,
   onResetOutput,
   onTestOutput,
   meter,
@@ -49,9 +52,12 @@ export function AudioIoPanel({
   voiceChannels: string;
   voiceUsesSelectedTrack: boolean;
   outputLabel: string;
+  outputDevices: AudioDeviceInfo[];
+  outputDeviceId: string;
   canChooseOutput: boolean;
   outputHelp: string | null;
   onChooseOutput: () => void;
+  onSelectOutput: (device: AudioDeviceInfo | null) => void;
   onResetOutput: () => void;
   onTestOutput: () => void;
   meter: { left: number; right: number };
@@ -160,6 +166,21 @@ export function AudioIoPanel({
           </div>
         </div>
         <p className="hint">Output level is what Worship Keys is producing. It does not confirm a cable is connected.</p>
+        <select
+          value={outputDeviceId}
+          onChange={(event) => {
+            const device = outputDevices.find((entry) => entry.deviceId === event.target.value) ?? null;
+            onSelectOutput(device);
+          }}
+          aria-label="Audio output device"
+        >
+          <option value="">System default output</option>
+          {outputDevices.map((device) => (
+            <option key={device.deviceId} value={device.deviceId}>
+              {device.label}
+            </option>
+          ))}
+        </select>
         <div className="btn-row">
           {canChooseOutput ? (
             <>

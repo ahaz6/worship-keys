@@ -8,7 +8,15 @@ import {
   gainToVolumePercent,
   volumePercentToGain,
 } from "@/lib/audio/crossfade";
-import { PadEngine } from "@/lib/audio/pad-engine";
+import {
+  PAD_LIMITS,
+  PadEngine,
+  brightnessPercentToDb,
+  motionFrequencyForPercent,
+  motionBarsForPercent,
+  tempoSyncedMotionFrequency,
+  widthPercentToSideGain,
+} from "@/lib/audio/pad-engine";
 
 describe("equal-power crossfade", () => {
   it("keeps constant power across the whole crossfade", () => {
@@ -103,5 +111,64 @@ describe("pad motion labels", () => {
     expect(PadEngine.motionLabel(70)).toBe("Flowing");
     expect(PadEngine.motionLabel(71)).toBe("Fast");
     expect(PadEngine.motionLabel(100)).toBe("Fast");
+  });
+
+  it("maps slow, flowing and fast to clearly different cycle speeds", () => {
+    expect(motionFrequencyForPercent(0)).toBeCloseTo(PAD_LIMITS.motionHz.min, 6);
+    expect(motionFrequencyForPercent(100)).toBeCloseTo(PAD_LIMITS.motionHz.max, 6);
+    expect(motionFrequencyForPercent(25)).toBeLessThan(motionFrequencyForPercent(50));
+    expect(motionFrequencyForPercent(50)).toBeLessThan(motionFrequencyForPercent(75));
+    expect(motionFrequencyForPercent(75) / motionFrequencyForPercent(25)).toBeGreaterThan(4);
+  });
+
+  it("syncs motion to bars so slow songs breathe more slowly", () => {
+    expect(motionBarsForPercent(18)).toBe(16);
+    expect(motionBarsForPercent(50)).toBe(8);
+    expect(motionBarsForPercent(90)).toBe(4);
+    expect(1 / tempoSyncedMotionFrequency(18, 60, 4, 4)).toBeCloseTo(64, 6);
+    expect(1 / tempoSyncedMotionFrequency(18, 120, 4, 4)).toBeCloseTo(32, 6);
+    expect(tempoSyncedMotionFrequency(18, 120, 4, 4)).toBeGreaterThan(
+      tempoSyncedMotionFrequency(18, 60, 4, 4),
+    );
+  });
+});
+
+describe("ambient tone and width mappings", () => {
+  it("keeps brightness musical and bounded", () => {
+    expect(brightnessPercentToDb(0)).toBeCloseTo(-12, 6);
+    expect(brightnessPercentToDb(42)).toBeCloseTo(0, 6);
+    expect(brightnessPercentToDb(100)).toBeCloseTo(9, 6);
+    expect(brightnessPercentToDb(-20)).toBeCloseTo(-12, 6);
+    expect(brightnessPercentToDb(140)).toBeCloseTo(9, 6);
+  });
+
+  it("moves from mono through the untouched source to an immersive width", () => {
+    expect(widthPercentToSideGain(0)).toBeCloseTo(0, 6);
+    expect(widthPercentToSideGain(50)).toBeCloseTo(1, 6);
+    expect(widthPercentToSideGain(100)).toBeCloseTo(1.8, 6);
+  });
+});
+
+describe("tempo-aware Sound Wall assets", () => {
+  it("selects ultra slow, deep slow and slow immediately from BPM", () => {
+    const engine = new PadEngine();
+    const asset = {
+      pitchClass: 0 as const,
+      note: "C",
+      url: "/normal.wav",
+      loopStart: 0,
+      loopEnd: 24,
+      gainTrim: 1,
+      tempoVariants: [
+        { maxBpm: 120, url: "/deep.wav", loopStart: 0, loopEnd: 24, gainTrim: 1 },
+        { maxBpm: 80, url: "/ultra.wav", loopStart: 0, loopEnd: 24, gainTrim: 1 },
+      ],
+    };
+    engine.setTempo(60);
+    expect(engine.resolveAssetForTempo(asset).url).toBe("/ultra.wav");
+    engine.setTempo(100);
+    expect(engine.resolveAssetForTempo(asset).url).toBe("/deep.wav");
+    engine.setTempo(140);
+    expect(engine.resolveAssetForTempo(asset).url).toBe("/normal.wav");
   });
 });

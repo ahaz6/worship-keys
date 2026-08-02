@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import { detectChord } from "@/lib/music/chord-detector";
 import { chordNameForCandidate } from "@/lib/music/chord-name";
 import { CHORD_TEMPLATES } from "@/lib/music/chord-templates";
-import { nashvilleForCandidate, toNashville } from "@/lib/music/nashville";
+import {
+  nashvilleForCandidate,
+  simpleBassNumberForCandidate,
+  simpleBassNumberForMidiNote,
+  toNashville,
+} from "@/lib/music/nashville";
 import { parseNoteName, spellKeyShort } from "@/lib/music/notation";
 import { PITCH_CLASSES, type Mode, type PitchClass } from "@/lib/music/pitch";
 import { adjustMidiNote } from "@/lib/music/transpose";
@@ -201,9 +206,50 @@ describe("chord vocabulary", () => {
     expect(detection.best?.root).toBe(0);
     expect(detection.best?.bass).toBe(4);
     expect(nashvilleForCandidate(detection.best!, 0).text).toBe("1/3");
+    expect(simpleBassNumberForCandidate(detection.best!, 0)).toBe("3");
+  });
+
+  it("shows only 1–7 for the lowest note while keeping chromatic detail out of the stage number", () => {
+    const borrowed = detectChord([58, 62, 65], { bassMidiNote: 58, keyTonic: 0, keyMode: "major" });
+    expect(nashvilleForCandidate(borrowed.best!, 0).text).toBe("♭7");
+    expect(simpleBassNumberForCandidate(borrowed.best!, 0)).toBe("7");
+
+    const sharpFourBass = detectChord([54, 60, 64], { bassMidiNote: 54, keyTonic: 0, keyMode: "major" });
+    expect(simpleBassNumberForCandidate(sharpFourBass.best!, 0)).toBe("4");
   });
 
   it("returns nothing for a single note", () => {
     expect(detectChord([60]).best).toBeNull();
+  });
+});
+
+describe("bass-led live Nashville display", () => {
+  it("keeps the low root while the right hand plays changing melody notes", () => {
+    const keyTonic = parseNoteName("C") as PitchClass;
+    const lowBass = 36; // C2
+    const highMelody = [76, 79, 81, 83]; // E5, G5, A5, B5
+
+    for (const melodyNote of highMelody) {
+      const sounding = [lowBass, melodyNote];
+      expect(simpleBassNumberForMidiNote(Math.min(...sounding), keyTonic)).toBe("1");
+    }
+  });
+
+  it("maps the low fifth independently of a dense high voicing", () => {
+    const keyTonic = parseNoteName("C") as PitchClass;
+    const sounding = [43, 72, 74, 76, 79]; // G2 below a C-D-E-G melody cluster
+    expect(simpleBassNumberForMidiNote(Math.min(...sounding), keyTonic)).toBe("5");
+  });
+
+  it("returns the same number for every octave of the same bass note", () => {
+    const keyTonic = parseNoteName("D") as PitchClass;
+    for (const d of [26, 38, 50, 62, 74, 86]) {
+      expect(simpleBassNumberForMidiNote(d, keyTonic)).toBe("1");
+    }
+  });
+
+  it("shows a bass number even before enough notes exist to name a chord", () => {
+    expect(detectChord([48], { bassMidiNote: 48 }).best).toBeNull();
+    expect(simpleBassNumberForMidiNote(48, 0)).toBe("1");
   });
 });

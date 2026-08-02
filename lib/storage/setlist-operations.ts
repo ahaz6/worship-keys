@@ -22,11 +22,13 @@ export function createSong(overrides: Partial<Song> = {}): Song {
     mode: overrides.mode ?? "major",
     timeSignature: overrides.timeSignature ?? { numerator: 4, denominator: 4 },
     bpm: overrides.bpm,
-    padPresetId: overrides.padPresetId ?? "aurora",
+    padPresetId: overrides.padPresetId ?? "sound-walls",
     mainVolume: overrides.mainVolume,
     shimmerLevel: overrides.shimmerLevel,
     padMotion: overrides.padMotion,
     tone: overrides.tone,
+    brightness: overrides.brightness,
+    stereoWidth: overrides.stereoWidth,
     crossfadeSeconds: overrides.crossfadeSeconds,
     fadeInSeconds: overrides.fadeInSeconds,
     fadeOutSeconds: overrides.fadeOutSeconds,
@@ -110,9 +112,9 @@ export function songKey(song: Song): SongKey {
 export function createStarterSetlist(): Setlist {
   const setlist = createSetlist("Sunday Morning");
   const songs: Song[] = [
-    createSong({ title: "Gathering", concertKey: 7, mode: "major", padPresetId: "aurora" }),
-    createSong({ title: "Prayer", concertKey: 2, mode: "minor", padPresetId: "ground", timeSignature: { numerator: 3, denominator: 4 } }),
-    createSong({ title: "Response", concertKey: 10, mode: "major", padPresetId: "cathedral", bpm: 72 }),
+    createSong({ title: "Gathering", concertKey: 7, mode: "major", padPresetId: "sound-walls" }),
+    createSong({ title: "Prayer", concertKey: 2, mode: "minor", padPresetId: "sound-walls", timeSignature: { numerator: 3, denominator: 4 } }),
+    createSong({ title: "Response", concertKey: 10, mode: "major", padPresetId: "sound-walls", bpm: 72 }),
   ];
   return songs.reduce((accumulator, song) => addSong(accumulator, song), setlist);
 }

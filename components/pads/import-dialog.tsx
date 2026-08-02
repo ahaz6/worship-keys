@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 
 import { Modal } from "@/components/common/modal";
 import { spellPitchClassBoth } from "@/lib/music/notation";
-import { PITCH_CLASSES, type PitchClass } from "@/lib/music/pitch";
+import { PITCH_CLASSES, type Mode, type PitchClass } from "@/lib/music/pitch";
 import type { PadPreset } from "@/types/pads";
 
 /**
@@ -59,11 +59,12 @@ export function ImportDialog({
 }: {
   onClose: () => void;
   /** Receives the validated pads plus the name for the new local preset. */
-  onImport: (name: string, pads: ImportedPad[]) => void;
+  onImport: (name: string, mode: Mode | "neutral", pads: ImportedPad[]) => void;
   /** Decodes an encoded file; supplied by the engine so it uses one context. */
   decode: (data: ArrayBuffer) => Promise<AudioBuffer>;
 }) {
   const [presetName, setPresetName] = useState("My pads");
+  const [presetMode, setPresetMode] = useState<Mode | "neutral">("neutral");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
 
   const addFiles = useCallback(
@@ -145,6 +146,7 @@ export function ImportDialog({
             onClick={() =>
               onImport(
                 presetName.trim() || "My pads",
+                presetMode,
                 ready.map((candidate) => ({
                   pitchClass: candidate.pitchClass,
                   fileName: candidate.file.name,
@@ -172,6 +174,18 @@ export function ImportDialog({
           Pad pack name
         </label>
         <input id="import-name" type="text" value={presetName} onChange={(event) => setPresetName(event.target.value)} />
+      </div>
+
+      <div className="field" style={{ marginTop: 14 }}>
+        <label className="label" htmlFor="import-mode">
+          Harmonic character
+        </label>
+        <select id="import-mode" value={presetMode} onChange={(event) => setPresetMode(event.target.value as Mode | "neutral")}>
+          <option value="neutral">Neutral · no major/minor third</option>
+          <option value="major">Major</option>
+          <option value="minor">Minor</option>
+        </select>
+        <p className="hint">Choose neutral only when the recording contains no third. This prevents a major pad playing under a minor song.</p>
       </div>
 
       <div className="field" style={{ marginTop: 14 }}>
@@ -249,12 +263,12 @@ export function ImportDialog({
 }
 
 /** Builds a preset description from imported files. */
-export function buildLocalPreset(id: string, name: string, pads: ImportedPad[]): PadPreset {
+export function buildLocalPreset(id: string, name: string, mode: Mode | "neutral", pads: ImportedPad[]): PadPreset {
   return {
     id,
     name,
     description: `Imported locally · ${pads.length} of 12 keys`,
-    mode: "neutral",
+    mode,
     local: true,
     keys: pads
       .slice()

@@ -98,12 +98,22 @@ describe("joining", () => {
     expect(rejoined.deviceId).toBe(joined.deviceId);
   });
 
+  it("updates a reconnecting device name after the join screen asks again", () => {
+    const store = onlineStore();
+    const joined = joinViewer(store, "Old name");
+    store.join(joined.token, "Sunday pianist");
+    expect(store.getDevice(joined.deviceId)?.name).toBe("Sunday pianist");
+  });
+
   it("refuses new devices once joins are locked", () => {
     const store = onlineStore();
     store.setJoinsLocked(true);
     expect(store.join(store.viewerToken, "Late iPad")).toEqual({
       error: "The host has locked new devices for this session.",
     });
+    expect(store.getSnapshot().joinsLocked).toBe(true);
+    store.setJoinsLocked(false);
+    expect(store.getSnapshot().joinsLocked).toBe(false);
   });
 });
 
@@ -121,6 +131,20 @@ describe("leader handover", () => {
     const wrong = store.pin === "000000" ? "111111" : "000000";
     expect(store.requestLeaderRole(device.deviceId, wrong).status).toBe("rejected");
     expect(store.currentLeaderId).toBeNull();
+  });
+
+  it("rate limits repeated wrong leader pins per device", () => {
+    let now = 1_000;
+    const store = onlineStore({ now: () => now });
+    const device = joinViewer(store);
+    const wrong = store.pin === "000000" ? "111111" : "000000";
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      expect(store.requestLeaderRole(device.deviceId, wrong).reason).toContain("not correct");
+    }
+    expect(store.requestLeaderRole(device.deviceId, wrong).reason).toContain("Too many");
+    expect(store.requestLeaderRole(device.deviceId, store.pin).reason).toContain("Too many");
+    now += 60_001;
+    expect(store.requestLeaderRole(device.deviceId, store.pin).status).toBe("granted");
   });
 
   it("never lets a second device take over silently", () => {
@@ -177,6 +201,27 @@ describe("command authorization and revisions", () => {
     const stale = store.revision;
     store.applyHostState({ padState: "playing" });
     expect(store.evaluateCommand(leader.deviceId, "m1", stale, command)).toMatchObject({ status: "stale" });
+  });
+
+  it("accepts absolute live sound controls while display revisions advance", () => {
+    const store = onlineStore();
+    const leader = joinViewer(store);
+    store.requestLeaderRole(leader.deviceId, store.pin);
+    const stale = store.revision;
+    store.applyHostState({ nashville: "4" });
+
+    expect(
+      store.evaluateCommand(leader.deviceId, "level-1", stale, {
+        type: "set-pad-settings",
+        patch: { mainVolume: 48, shimmer: 18 },
+      }),
+    ).toMatchObject({ status: "forward" });
+    expect(store.evaluateCommand(leader.deviceId, "mute-1", stale, { type: "set-muted", muted: true })).toMatchObject({
+      status: "forward",
+    });
+    expect(store.evaluateCommand(leader.deviceId, "tempo-1", stale, { type: "set-bpm", bpm: 72 })).toMatchObject({
+      status: "forward",
+    });
   });
 
   it("never runs the same message id twice", () => {
@@ -283,6 +328,25 @@ describe("wire validation", () => {
         messageId: "abcd1234",
         expectedRevision: 0,
         command: { type: "format-hard-drive" },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts only the supported live tempo range", () => {
+    expect(
+      clientMessageSchema.safeParse({
+        type: "command",
+        messageId: "tempo-ok",
+        expectedRevision: 0,
+        command: { type: "set-bpm", bpm: 110 },
+      }).success,
+    ).toBe(true);
+    expect(
+      clientMessageSchema.safeParse({
+        type: "command",
+        messageId: "tempo-low",
+        expectedRevision: 0,
+        command: { type: "set-bpm", bpm: 20 },
       }).success,
     ).toBe(false);
   });

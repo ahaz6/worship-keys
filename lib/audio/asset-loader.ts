@@ -9,10 +9,10 @@
 import type { PadKeyAsset, PadManifest, PadPreset } from "@/types/pads";
 import type { PitchClass } from "@/lib/music/pitch";
 
-export type PadBufferKey = `${string}:${number}`;
+export type PadBufferKey = string;
 
-function bufferKey(presetId: string, pitchClass: PitchClass): PadBufferKey {
-  return `${presetId}:${pitchClass}`;
+function bufferKey(presetId: string, pitchClass: PitchClass, url = "local"): PadBufferKey {
+  return `${presetId}:${pitchClass}:${url}`;
 }
 
 export class PadAssetLoader {
@@ -24,7 +24,10 @@ export class PadAssetLoader {
   constructor(private readonly context: BaseAudioContext) {}
 
   static async loadManifest(signal?: AbortSignal): Promise<PadManifest> {
-    const response = await fetch("/pads/manifest.json", { signal, cache: "force-cache" });
+    // The manifest controls which packs are visible. It must never survive a
+    // pack replacement in the browser cache; the much larger audio files may
+    // still be cached by their versioned URLs.
+    const response = await fetch(`/pads/manifest.json?v=${Date.now()}`, { signal, cache: "no-store" });
     if (!response.ok) throw new Error(`Pad manifest unavailable (${response.status})`);
     return (await response.json()) as PadManifest;
   }
@@ -34,23 +37,24 @@ export class PadAssetLoader {
     this.localBlobs.set(bufferKey(presetId, pitchClass), data);
   }
 
-  has(presetId: string, pitchClass: PitchClass): boolean {
-    return this.buffers.has(bufferKey(presetId, pitchClass));
+  has(presetId: string, pitchClass: PitchClass, url?: string): boolean {
+    if (url) return this.buffers.has(bufferKey(presetId, pitchClass, url));
+    return [...this.buffers.keys()].some((key) => key.startsWith(`${presetId}:${pitchClass}:`));
   }
 
   get(presetId: string, pitchClass: PitchClass): AudioBuffer | null {
-    return this.buffers.get(bufferKey(presetId, pitchClass)) ?? null;
+    return [...this.buffers.entries()].find(([key]) => key.startsWith(`${presetId}:${pitchClass}:`))?.[1] ?? null;
   }
 
   async load(presetId: string, asset: PadKeyAsset): Promise<AudioBuffer> {
-    const key = bufferKey(presetId, asset.pitchClass);
+    const key = bufferKey(presetId, asset.pitchClass, asset.url);
     const cached = this.buffers.get(key);
     if (cached) return cached;
     const inFlight = this.pending.get(key);
     if (inFlight) return inFlight;
 
     const request = (async () => {
-      const local = this.localBlobs.get(key);
+      const local = this.localBlobs.get(bufferKey(presetId, asset.pitchClass));
       const encoded = local ?? (await this.fetchEncoded(asset.url));
       // decodeAudioData detaches the buffer, so local imports get a copy.
       const buffer = await this.context.decodeAudioData(local ? encoded.slice(0) : encoded);

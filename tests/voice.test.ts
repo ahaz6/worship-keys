@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { WAKE_WORD, isImmediateCommand, parseVoiceCommand } from "@/lib/voice/command-parser";
+import { WAKE_WORD, isImmediateCommand, isSpokenCountdown, parseVoiceCommand } from "@/lib/voice/command-parser";
 
 const confident = 0.9;
 
@@ -77,5 +77,17 @@ describe("voice command parsing", () => {
     // Switching the whole band's key is never automatic from a single phrase.
     expect(isImmediateCommand({ type: "switch-now" })).toBe(false);
     expect(isImmediateCommand({ type: "next-song" })).toBe(false);
+  });
+
+  it("recognises a complete MD countdown in digits, English and German", () => {
+    expect(isSpokenCountdown("3, 2, 1")).toBe(true);
+    expect(isSpokenCountdown("three two one, go")).toBe(true);
+    expect(isSpokenCountdown("Drei – zwei – eins!")).toBe(true);
+  });
+
+  it("does not release a crescendo for partial or reversed numbers", () => {
+    expect(isSpokenCountdown("three, two")).toBe(false);
+    expect(isSpokenCountdown("one two three")).toBe(false);
+    expect(isSpokenCountdown("we need three people in two minutes")).toBe(false);
   });
 });

@@ -20,8 +20,14 @@ npm-debug.log*
 tmp/
 coverage/
 .vitest/
+test-results/
+playwright-report/
 tsconfig.tsbuildinfo
 next-env.d.ts
 
 # Locally imported pad audio stays on the user's machine
 public/pads/local/
+
+# Source recordings supplied by the project owner. Only prepared web loops
+# under public/pads/ are part of the application.
+Ambient Pads/

@@ -26,8 +26,9 @@ export interface SetlistRepository {
 }
 
 const DB_NAME = "worship-keys";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = "state";
+const PAD_STORE = "local-pads";
 const STATE_KEY = "current";
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -36,6 +37,7 @@ function openDatabase(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      if (!db.objectStoreNames.contains(PAD_STORE)) db.createObjectStore(PAD_STORE, { keyPath: "id" });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("IndexedDB could not be opened."));

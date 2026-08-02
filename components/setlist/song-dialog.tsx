@@ -103,7 +103,18 @@ export function SongDialog({
           <select
             id="song-mode"
             value={draft.mode}
-            onChange={(event) => patch({ mode: event.target.value as Song["mode"] })}
+            onChange={(event) => {
+              const nextMode = event.target.value as Song["mode"];
+              const selectedPreset = presets.find((preset) => preset.id === draft.padPresetId);
+              const fallback = presets.find((preset) => preset.mode === "neutral");
+              patch({
+                mode: nextMode,
+                padPresetId:
+                  selectedPreset && selectedPreset.mode !== "neutral" && selectedPreset.mode !== nextMode
+                    ? (fallback?.id ?? draft.padPresetId)
+                    : draft.padPresetId,
+              });
+            }}
           >
             <option value="major">Major</option>
             <option value="minor">Minor</option>
@@ -154,8 +165,8 @@ export function SongDialog({
             onChange={(event) => patch({ padPresetId: event.target.value })}
           >
             {presets.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.name}
+              <option key={preset.id} value={preset.id} disabled={preset.mode !== "neutral" && preset.mode !== draft.mode}>
+                {preset.name}{preset.mode === "neutral" ? " · Major + Minor" : preset.mode === "major" ? " · Major" : " · Minor"}
               </option>
             ))}
           </select>

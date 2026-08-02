@@ -49,6 +49,30 @@ export function HostPanel({
 }) {
   const [joinOpen, setJoinOpen] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
+
+  const openAndCopyJoinLink = async () => {
+    if (!bootstrap) return;
+    setJoinOpen(true);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(bootstrap.joinUrl);
+      } else {
+        const field = document.createElement("textarea");
+        field.value = bootstrap.joinUrl;
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        document.body.appendChild(field);
+        field.select();
+        const copied = document.execCommand("copy");
+        field.remove();
+        if (!copied) throw new Error("Copy was not available.");
+      }
+      setCopyNotice("Join link copied to clipboard.");
+    } catch {
+      setCopyNotice("Join code opened. Copy the address below manually.");
+    }
+  };
 
   // The QR image is fetched only while the join dialog is actually open.
   useEffect(() => {
@@ -86,7 +110,7 @@ export function HostPanel({
       )}
 
       <div className="btn-row">
-        <button type="button" className="btn" onClick={() => setJoinOpen(true)} disabled={!bootstrap}>
+        <button type="button" className="btn" onClick={() => void openAndCopyJoinLink()} disabled={!bootstrap}>
           Show join code
         </button>
         <button type="button" className={`btn${remoteLocked ? " is-active" : ""}`} onClick={onToggleRemoteLock}>
@@ -141,6 +165,7 @@ export function HostPanel({
 
       {joinOpen && bootstrap ? (
         <Modal title="Join this session" onClose={() => setJoinOpen(false)}>
+          {copyNotice ? <div className="callout tone-info">{copyNotice}</div> : null}
           <p className="hint">Musicians scan this code and land in the view-only monitor. The pianist then enters the leader PIN.</p>
           <div className="qr">
             {qr ? (

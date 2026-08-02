@@ -94,7 +94,9 @@ async function handleSessionRoute(request, response, url) {
       json(response, 403, { error: "Only the host can rotate the leader PIN." });
       return true;
     }
-    json(response, 200, { leaderPin: store.rotatePin() });
+    const leaderPin = store.rotatePin();
+    sessionServer.syncRoles("The host created a new leader PIN. Leader access was removed.");
+    json(response, 200, { leaderPin });
     return true;
   }
 

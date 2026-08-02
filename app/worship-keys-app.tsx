@@ -7,14 +7,19 @@ import { Status } from "@/components/common/status";
 import { KeyboardStrip } from "@/components/midi/keyboard-strip";
 import { TransposePanel } from "@/components/midi/transpose-panel";
 import { AudioIoPanel } from "@/components/pads/audio-io-panel";
-import { ImportDialog, buildLocalPreset } from "@/components/pads/import-dialog";
-import { PAD_DEFAULTS, PadControls, type PadSettings } from "@/components/pads/pad-controls";
+import {
+  DEFAULT_PAD_TEMPO_BPM,
+  PAD_DEFAULTS,
+  PadControls,
+  type PadSettings,
+} from "@/components/pads/pad-controls";
 import { KeyRibbon } from "@/components/performance/key-ribbon";
 import { NowCard } from "@/components/performance/now-card";
 import { TransportDock } from "@/components/performance/transport-dock";
 import { HostPanel, type HostBootstrap } from "@/components/session/host-panel";
 import { SetlistRail } from "@/components/setlist/setlist-rail";
 import { SongDialog } from "@/components/setlist/song-dialog";
+import { SetlistTransfer } from "@/components/setlist/setlist-transfer";
 import { VoicePanel } from "@/components/voice/voice-panel";
 
 import { useMidi } from "@/lib/hooks/use-midi";
@@ -30,7 +35,7 @@ import {
 import { describeChannelSummary, describeExposedChannels, detectOutputSelectionSupport } from "@/lib/io/routing-capabilities";
 import { ChordStabilizer } from "@/lib/music/chord-stabilizer";
 import { chordNameForCandidate } from "@/lib/music/chord-name";
-import { nashvilleForCandidate } from "@/lib/music/nashville";
+import { simpleBassNumberForMidiNote } from "@/lib/music/nashville";
 import { spellKey, spellKeyShort } from "@/lib/music/notation";
 import type { Mode, PitchClass } from "@/lib/music/pitch";
 import { adjustMidiNote } from "@/lib/music/transpose";
@@ -66,7 +71,7 @@ import {
   startPad,
   stopPad,
 } from "@/lib/transitions/transition-machine";
-import type { ParsedCommand } from "@/lib/voice/command-parser";
+import { isSpokenCountdown, type ParsedCommand } from "@/lib/voice/command-parser";
 
 const DEFAULT_PREFERENCES: Preferences = {
   notation: "auto",
@@ -89,16 +94,28 @@ export function WorshipKeysApp() {
   const [unsaved, setUnsaved] = useState(false);
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
   const [audioStarted, setAudioStarted] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
 
   const repositoryRef = useRef<SetlistRepository | null>(null);
   const stabilizerRef = useRef(new ChordStabilizer());
   // Mirror of the transition context for callbacks that must not re-create
   // themselves on every state change (keyboard shortcuts, session commands).
   const transitionRef = useRef(transition);
+  const padSettingsSongIdRef = useRef<string | null>(null);
+  const padSettingsRef = useRef(padSettings);
+  const spatialRampTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const crescendoReturnPointRef = useRef<{ brightness: number; width: number } | null>(null);
   useEffect(() => {
     transitionRef.current = transition;
   }, [transition]);
+  useEffect(() => {
+    padSettingsRef.current = padSettings;
+  }, [padSettings]);
+  useEffect(
+    () => () => {
+      if (spatialRampTimerRef.current) clearInterval(spatialRampTimerRef.current);
+    },
+    [],
+  );
 
   const pads = usePadEngine();
   const midi = useMidi();
@@ -107,6 +124,8 @@ export function WorshipKeysApp() {
   const song = findActiveSong(setlist);
   const concertKey = (song?.concertKey ?? 0) as PitchClass;
   const mode: Mode = song?.mode ?? "major";
+  const padTempoBpm = song?.bpm ?? DEFAULT_PAD_TEMPO_BPM;
+  const padTempoTier = padTempoBpm <= 80 ? "natural-slow" : padTempoBpm <= 120 ? "gentle-slow" : "soft-slow";
   const spelling = useMemo(
     () => ({ preference: preferences.notation, keyTonic: concertKey, keyMode: mode }),
     [preferences.notation, concertKey, mode],
@@ -146,17 +165,80 @@ export function WorshipKeysApp() {
 
   const applyPadSettings = useCallback(
     (patch: Partial<PadSettings>) => {
-      setPadSettings((current) => {
-        const next = { ...current, ...patch };
-        if (patch.mainVolume != null && !muted) pads.engine.setMainVolume(patch.mainVolume);
-        if (patch.shimmer != null) pads.engine.setShimmerLevel(patch.shimmer);
-        if (patch.tone != null) pads.engine.setTone(patch.tone);
-        if (patch.motion != null) pads.engine.setMotion(patch.motion);
-        return next;
-      });
+      padSettingsRef.current = { ...padSettingsRef.current, ...patch };
+      setPadSettings((current) => ({ ...current, ...patch }));
+      if (patch.mainVolume != null && !muted) pads.engine.setMainVolume(patch.mainVolume);
+      if (patch.shimmer != null) pads.engine.setShimmerLevel(patch.shimmer);
+      if (patch.tone != null) pads.engine.setTone(patch.tone);
+      if (patch.brightness != null) pads.engine.setBrightness(patch.brightness);
+      if (patch.width != null) pads.engine.setWidth(patch.width);
+      // Motion is intentionally not performance-adjustable: keep its subtle,
+      // tempo-synchronised breathing fixed on the warm Slow setting.
+      pads.engine.setMotion(PAD_DEFAULTS.motion);
+      if (song) {
+        const songPatch: Partial<Song> = {};
+        if (patch.mainVolume != null) songPatch.mainVolume = patch.mainVolume;
+        if (patch.fadeInSeconds != null) songPatch.fadeInSeconds = patch.fadeInSeconds;
+        if (patch.fadeOutSeconds != null) songPatch.fadeOutSeconds = patch.fadeOutSeconds;
+        if (patch.crossfadeSeconds != null) songPatch.crossfadeSeconds = patch.crossfadeSeconds;
+        if (Object.keys(songPatch).length > 0) {
+          setSetlist((setlistState) => updateSong(setlistState, song.id, songPatch));
+        }
+      }
     },
-    [muted, pads.engine],
+    [muted, pads.engine, song],
   );
+
+  // A song owns its pad choice and optional sound settings. Loading or
+  // selecting it must therefore activate those values, not merely change the
+  // title and key on screen.
+  const availablePadPresets = pads.presets;
+  const activePadPresetId = pads.presetId;
+  const setActivePadPresetId = pads.setPresetId;
+  useEffect(() => {
+    if (!song || availablePadPresets.length === 0) return;
+    const requested = availablePadPresets.find((entry) => entry.id === song.padPresetId);
+    const compatible = requested && (requested.mode === "neutral" || requested.mode === song.mode);
+    const selected = compatible
+      ? requested
+      : availablePadPresets.find((entry) => entry.mode === "neutral") ?? availablePadPresets[0];
+    if (selected && selected.id !== activePadPresetId) setActivePadPresetId(selected.id);
+    if (selected && song.padPresetId !== selected.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- migrates removed preset ids once after the manifest loads
+      setSetlist((current) => updateSong(current, song.id, { padPresetId: selected.id }));
+    }
+
+    // Performance controls reset only when another song actually becomes
+    // active. Unrelated song edits and live XY movements stay uninterrupted.
+    if (padSettingsSongIdRef.current === song.id) return;
+    padSettingsSongIdRef.current = song.id;
+
+    const next: PadSettings = {
+      ...PAD_DEFAULTS,
+      mainVolume: song.mainVolume ?? PAD_DEFAULTS.mainVolume,
+      // Shimmer is one uninterrupted live effect across the whole setlist.
+      // A song change may move the pad key, but never this effect amount.
+      shimmer: padSettingsRef.current.shimmer,
+      tone: PAD_DEFAULTS.tone,
+      brightness: PAD_DEFAULTS.brightness,
+      width: PAD_DEFAULTS.width,
+      motion: PAD_DEFAULTS.motion,
+      fadeInSeconds: song.fadeInSeconds ?? PAD_DEFAULTS.fadeInSeconds,
+      fadeOutSeconds: song.fadeOutSeconds ?? PAD_DEFAULTS.fadeOutSeconds,
+      crossfadeSeconds: song.crossfadeSeconds ?? PAD_DEFAULTS.crossfadeSeconds,
+    };
+    // Song identity is the synchronization boundary; this does not run for
+    // ordinary engine snapshots or slider renders.
+    setPadSettings(next);
+    if (audioStarted) {
+      pads.engine.setMainVolume(muted ? 0 : next.mainVolume);
+      pads.engine.setShimmerLevel(next.shimmer);
+      pads.engine.setTone(next.tone);
+      pads.engine.setBrightness(next.brightness);
+      pads.engine.setWidth(next.width);
+      pads.engine.setMotion(PAD_DEFAULTS.motion);
+    }
+  }, [activePadPresetId, audioStarted, availablePadPresets, muted, pads.engine, setActivePadPresetId, song]);
 
   const toggleMute = useCallback(() => {
     setMuted((current) => {
@@ -166,13 +248,23 @@ export function WorshipKeysApp() {
     });
   }, [padSettings.mainVolume, pads.engine]);
 
+  const setPadMuted = useCallback(
+    (next: boolean) => {
+      setMuted(next);
+      pads.engine.setMainVolume(next ? 0 : padSettings.mainVolume);
+    },
+    [padSettings.mainVolume, pads.engine],
+  );
+
   /** Everything audible starts from here, so it always follows a user gesture. */
   const startAudio = useCallback(async () => {
     await pads.preloadPreset();
     pads.engine.setMainVolume(muted ? 0 : padSettings.mainVolume);
     pads.engine.setShimmerLevel(padSettings.shimmer);
     pads.engine.setTone(padSettings.tone);
-    pads.engine.setMotion(padSettings.motion);
+    pads.engine.setBrightness(padSettings.brightness);
+    pads.engine.setWidth(padSettings.width);
+    pads.engine.setMotion(PAD_DEFAULTS.motion);
     setAudioStarted(true);
   }, [muted, padSettings, pads]);
 
@@ -184,10 +276,24 @@ export function WorshipKeysApp() {
     void preloadPreset();
   }, [audioStarted, preloadPreset]);
 
+  useEffect(() => {
+    pads.engine.setTempo(
+      padTempoBpm,
+      song?.timeSignature.numerator ?? 4,
+      song?.timeSignature.denominator ?? 4,
+    );
+  }, [padTempoBpm, pads.engine, song?.timeSignature.denominator, song?.timeSignature.numerator]);
+
+  useEffect(() => {
+    if (audioStarted) void preloadPreset();
+  }, [audioStarted, padTempoTier, preloadPreset]);
+
   const fadeIn = useCallback(async () => {
     await startAudio();
-    await pads.engine.fadeIn(concertKey, { durationSeconds: padSettings.fadeInSeconds });
+    const result = await pads.engine.fadeIn(concertKey, { durationSeconds: padSettings.fadeInSeconds });
+    if (!result.ok) return result;
     setTransition((current) => startPad(current, { tonic: concertKey, mode }));
+    return result;
   }, [concertKey, mode, padSettings.fadeInSeconds, pads.engine, startAudio]);
 
   const fadeOut = useCallback(() => {
@@ -216,10 +322,37 @@ export function WorshipKeysApp() {
     [mode, song],
   );
 
+  const fadeInAtKey = useCallback(
+    async (tonic: PitchClass, nextMode: Mode = mode) => {
+      await startAudio();
+      const result = await pads.engine.fadeIn(tonic, { durationSeconds: padSettings.fadeInSeconds });
+      if (!result.ok) return result;
+      setConcertKey(tonic, nextMode);
+      setTransition((current) => startPad(current, { tonic, mode: nextMode }));
+      return result;
+    },
+    [mode, padSettings.fadeInSeconds, pads.engine, setConcertKey, startAudio],
+  );
+
   const runCrossfade = useCallback(
     async (tonic: PitchClass, nextMode: Mode) => {
-      setTransition((current) => beginTransition(current, performance.now(), padSettings.crossfadeSeconds));
-      await pads.engine.crossfadeTo(tonic, padSettings.crossfadeSeconds);
+      const startedAt = performance.now();
+      setTransition((current) =>
+        beginTransition(
+          prepareTransition(current, { tonic, mode: nextMode }, startedAt),
+          startedAt,
+          padSettings.crossfadeSeconds,
+        ),
+      );
+      const result = await pads.engine.crossfadeTo(tonic, padSettings.crossfadeSeconds);
+      if (!result.ok) {
+        setTransition((current) =>
+          current.state === "transitioning"
+            ? { ...current, state: "playing", target: null, armedAt: null, startedAt: null, durationSeconds: 0 }
+            : current,
+        );
+        return result;
+      }
       setTimeout(() => {
         // Only adopt the new key if the crossfade actually ran to the end; a
         // Stop now during the fade must not silently rewrite the song's key.
@@ -227,8 +360,62 @@ export function WorshipKeysApp() {
         setConcertKey(tonic, nextMode);
         setTransition((current) => completeTransition(current));
       }, padSettings.crossfadeSeconds * 1000 + 120);
+      return result;
     },
     [padSettings.crossfadeSeconds, pads.engine, setConcertKey],
+  );
+
+  const selectSongWithPadTransition = useCallback(
+    async (target: Song): Promise<boolean> => {
+      if (target.id === song?.id) return true;
+      const targetTonic = target.concertKey as PitchClass;
+      const padIsRunning = pads.engine.snapshot().state !== "stopped";
+      const keyChanges = targetTonic !== concertKey;
+
+      if (padIsRunning && keyChanges) {
+        const startedAt = performance.now();
+        // Resolve the incoming pad from the destination song's tempo without
+        // replacing the outgoing voice first. This prevents two competing
+        // crossfades when the songs belong to different slow-motion tiers.
+        pads.engine.setTempo(
+          target.bpm ?? DEFAULT_PAD_TEMPO_BPM,
+          target.timeSignature.numerator,
+          target.timeSignature.denominator,
+          false,
+        );
+        setTransition((current) =>
+          beginTransition(
+            prepareTransition(current, { tonic: targetTonic, mode: target.mode }, startedAt),
+            startedAt,
+            padSettings.crossfadeSeconds,
+          ),
+        );
+        const result = await pads.engine.crossfadeTo(targetTonic, padSettings.crossfadeSeconds);
+        if (!result.ok) {
+          pads.engine.setTempo(
+            song?.bpm ?? DEFAULT_PAD_TEMPO_BPM,
+            song?.timeSignature.numerator ?? 4,
+            song?.timeSignature.denominator ?? 4,
+            false,
+          );
+          setTransition((current) =>
+            current.state === "transitioning"
+              ? { ...current, state: "playing", target: null, armedAt: null, startedAt: null, durationSeconds: 0 }
+              : current,
+          );
+          return false;
+        }
+        setTimeout(() => {
+          if (transitionRef.current.state === "transitioning") {
+            setTransition((current) => completeTransition(current));
+          }
+        }, padSettings.crossfadeSeconds * 1000 + 120);
+      }
+
+      setSetlist((current) => selectSong(current, target.id));
+      return true;
+    },
+    [concertKey, padSettings.crossfadeSeconds, pads.engine, song],
   );
 
   const prepareKey = useCallback(
@@ -238,34 +425,87 @@ export function WorshipKeysApp() {
     [mode],
   );
 
-  /** Key ribbon: when stopped this just sets the key; when playing it arms it. */
+  /** A running pad moves immediately with an equal-power crossfade. */
   const onKeySelected = useCallback(
     (tonic: PitchClass) => {
       if (transition.state === "stopped") {
-        setConcertKey(tonic);
+        void fadeInAtKey(tonic, mode);
         return;
       }
       if (tonic === concertKey) return;
-      prepareKey(tonic);
+      void runCrossfade(tonic, mode);
     },
-    [concertKey, prepareKey, setConcertKey, transition.state],
+    [concertKey, fadeInAtKey, mode, runCrossfade, transition.state],
   );
 
-  const switchNow = useCallback(() => {
+  const switchNow = useCallback(async () => {
     const target = transitionRef.current.target;
-    if (!target) return;
-    void runCrossfade(target.tonic, target.mode);
+    if (!target) return { ok: false as const, reason: "No key is prepared." };
+    return runCrossfade(target.tonic, target.mode);
   }, [runCrossfade]);
 
-  const cancelTransition = useCallback(() => {
-    if (transitionRef.current.state === "crescendo") pads.engine.cancelCrescendo();
+  const rampSpatialControls = useCallback(
+    (targetBrightness: number, targetWidth: number, durationSeconds: number) => {
+      if (spatialRampTimerRef.current) clearInterval(spatialRampTimerRef.current);
+      const fromBrightness = padSettingsRef.current.brightness;
+      const fromWidth = padSettingsRef.current.width;
+      const durationMs = Math.max(50, durationSeconds * 1000);
+      const startedAt = performance.now();
+
+      // Schedule the actual DSP only once. The modest UI timer below merely
+      // mirrors progress and never reschedules audio automation.
+      pads.engine.rampBrightness(targetBrightness, durationSeconds);
+      pads.engine.rampWidth(targetWidth, durationSeconds);
+      spatialRampTimerRef.current = setInterval(() => {
+        const progress = Math.min(1, (performance.now() - startedAt) / durationMs);
+        const patch = {
+          brightness: Math.round(fromBrightness + (targetBrightness - fromBrightness) * progress),
+          width: Math.round(fromWidth + (targetWidth - fromWidth) * progress),
+        };
+        padSettingsRef.current = { ...padSettingsRef.current, ...patch };
+        setPadSettings((current) => ({ ...current, ...patch }));
+        if (progress >= 1 && spatialRampTimerRef.current) {
+          clearInterval(spatialRampTimerRef.current);
+          spatialRampTimerRef.current = null;
+        }
+      }, 100);
+    },
+    [pads.engine],
+  );
+
+  const releaseCrescendo = useCallback(() => {
+    const releaseSeconds = 4;
+    const returnPoint = crescendoReturnPointRef.current ?? {
+      brightness: PAD_DEFAULTS.brightness,
+      width: PAD_DEFAULTS.width,
+    };
+    pads.engine.cancelCrescendo(releaseSeconds);
+    rampSpatialControls(returnPoint.brightness, returnPoint.width, releaseSeconds);
+    crescendoReturnPointRef.current = null;
     setTransition((current) => cancelPreparation(current));
-  }, [pads.engine]);
+  }, [pads.engine, rampSpatialControls]);
+
+  const cancelTransition = useCallback(() => {
+    if (transitionRef.current.state === "crescendo") {
+      releaseCrescendo();
+      return;
+    }
+    setTransition((current) => cancelPreparation(current));
+  }, [releaseCrescendo]);
 
   const runCrescendo = useCallback(() => {
+    if (transitionRef.current.state === "crescendo") {
+      releaseCrescendo();
+      return;
+    }
+    crescendoReturnPointRef.current = {
+      brightness: padSettingsRef.current.brightness,
+      width: padSettingsRef.current.width,
+    };
     pads.engine.startCrescendo(padSettings.crescendoSeconds);
+    rampSpatialControls(100, 100, padSettings.crescendoSeconds);
     setTransition((current) => startCrescendo(current, performance.now(), padSettings.crescendoSeconds));
-  }, [padSettings.crescendoSeconds, pads.engine]);
+  }, [padSettings.crescendoSeconds, pads.engine, rampSpatialControls, releaseCrescendo]);
 
   /* ------------------------------------------------------ chord detection */
 
@@ -273,22 +513,25 @@ export function WorshipKeysApp() {
     () => midi.notes.sounding.map((note) => adjustMidiNote(note, transposeForDevice(preferences, midi.selectedInput?.id))),
     [midi.notes.sounding, midi.selectedInput?.id, preferences],
   );
+  const bassMidiNote = soundingNotes[0] ?? null;
 
   const [chord, setChord] = useState<ReturnType<ChordStabilizer["update"]>>(null);
 
   useEffect(() => {
     const now = performance.now();
-    const bass = soundingNotes.length > 0 ? Math.min(...soundingNotes) : null;
     setChord(
       stabilizerRef.current.update(soundingNotes, now, {
-        bassMidiNote: bass,
+        bassMidiNote,
         keyTonic: concertKey,
         keyMode: mode,
       }),
     );
-  }, [soundingNotes, concertKey, mode]);
+  }, [soundingNotes, bassMidiNote, concertKey, mode]);
 
-  const nashville = chord ? nashvilleForCandidate(chord.candidate, concertKey, { preference: preferences.notation, simplified: preferences.liveMode }) : null;
+  // The stage number follows the lowest sounding register, not the full chord
+  // analysis. High melody notes therefore cannot replace the bass foundation.
+  const nashvilleBassNumber =
+    bassMidiNote != null ? simpleBassNumberForMidiNote(bassMidiNote, concertKey) : null;
   const chordLabel = chord ? chordNameForCandidate(chord.candidate, spelling) : null;
   const alternative = chord?.detection.candidates[1]
     ? chordNameForCandidate(chord.detection.candidates[1], spelling)
@@ -317,6 +560,7 @@ export function WorshipKeysApp() {
     outputs: [],
   });
   const [voiceDeviceId, setVoiceDeviceId] = useState<string | null>(null);
+  const [outputDeviceId, setOutputDeviceId] = useState("");
   const [voiceTrack, setVoiceTrack] = useState<MediaStreamTrack | null>(null);
 
   const refreshDevices = useCallback(() => {
@@ -344,7 +588,7 @@ export function WorshipKeysApp() {
           prepareKey(command.tonic, command.mode);
           break;
         case "switch-now":
-          switchNow();
+          void switchNow();
           break;
         case "crescendo":
           runCrescendo();
@@ -358,12 +602,12 @@ export function WorshipKeysApp() {
         case "next-song":
         case "previous-song": {
           const target = neighbourSong(setlist, command.type === "next-song" ? 1 : -1);
-          if (target) setSetlist((current) => selectSong(current, target.id));
+          if (target) void selectSongWithPadTransition(target);
           break;
         }
       }
     },
-    [cancelTransition, prepareKey, runCrescendo, setlist, stopNow, switchNow],
+    [cancelTransition, prepareKey, runCrescendo, selectSongWithPadTransition, setlist, stopNow, switchNow],
   );
 
   const voice = useVoice({
@@ -371,6 +615,21 @@ export function WorshipKeysApp() {
     requireWakeWord: preferences.requireWakeWord,
     onCommand: handleVoiceCommand,
   });
+  const handledCountdownIdRef = useRef<string | null>(null);
+  const latestVoiceSegment = voice.segments.at(-1);
+  const recentVoiceTranscript = voice.segments
+    .slice(-3)
+    .map((segment) => segment.text)
+    .join(" ");
+  useEffect(() => {
+    if (!latestVoiceSegment || latestVoiceSegment.id === handledCountdownIdRef.current) return;
+    handledCountdownIdRef.current = latestVoiceSegment.id;
+    // Browsers differ here: some deliver "3 2 1" as one final result, others
+    // finalize each spoken number separately. The three-segment window handles
+    // both without accepting an incomplete countdown.
+    if (transitionRef.current.state !== "crescendo" || !isSpokenCountdown(recentVoiceTranscript)) return;
+    releaseCrescendo();
+  }, [latestVoiceSegment, recentVoiceTranscript, releaseCrescendo]);
 
   /* --------------------------------------------------------- host session */
 
@@ -399,23 +658,62 @@ export function WorshipKeysApp() {
   }, [bootstrap]);
 
   const applyLeaderCommand = useCallback(
-    (command: LeaderCommand): { applied: boolean; reason?: string } => {
+    async (command: LeaderCommand): Promise<{ applied: boolean; reason?: string }> => {
       switch (command.type) {
         case "select-song": {
-          if (!setlist.songs.some((entry) => entry.id === command.songId)) return { applied: false, reason: "Unknown song." };
-          setSetlist((current) => selectSong(current, command.songId));
-          return { applied: true };
+          const target = setlist.songs.find((entry) => entry.id === command.songId);
+          if (!target) return { applied: false, reason: "Unknown song." };
+          return (await selectSongWithPadTransition(target))
+            ? { applied: true }
+            : { applied: false, reason: "The next song pad could not be started." };
         }
         case "next-song":
         case "previous-song": {
           const target = neighbourSong(setlist, command.type === "next-song" ? 1 : -1);
           if (!target) return { applied: false, reason: "End of the setlist." };
-          setSetlist((current) => selectSong(current, target.id));
-          return { applied: true };
+          return (await selectSongWithPadTransition(target))
+            ? { applied: true }
+            : { applied: false, reason: "The next song pad could not be started." };
         }
-        case "set-key":
-          setConcertKey(command.tonic as PitchClass, command.mode);
+        case "set-bpm":
+          if (!song) return { applied: false, reason: "No song is selected." };
+          setSetlist((current) => updateSong(current, song.id, { bpm: command.bpm }));
           return { applied: true };
+        case "add-song":
+          setSetlist((current) => addSong(current, command.song));
+          return { applied: true };
+        case "update-song":
+          if (!setlist.songs.some((entry) => entry.id === command.song.id)) {
+            return { applied: false, reason: "Unknown song." };
+          }
+          setSetlist((current) => updateSong(current, command.song.id, command.song));
+          return { applied: true };
+        case "remove-song":
+          if (!setlist.songs.some((entry) => entry.id === command.songId)) {
+            return { applied: false, reason: "Unknown song." };
+          }
+          setSetlist((current) => removeSong(current, command.songId));
+          return { applied: true };
+        case "duplicate-song":
+          if (!setlist.songs.some((entry) => entry.id === command.songId)) {
+            return { applied: false, reason: "Unknown song." };
+          }
+          setSetlist((current) => duplicateSong(current, command.songId));
+          return { applied: true };
+        case "rename-setlist":
+          setSetlist((current) => ({ ...current, name: command.name }));
+          return { applied: true };
+        case "replace-setlist":
+          setSetlist(command.setlist);
+          return { applied: true };
+        case "set-key":
+          if (transitionRef.current.state === "stopped") {
+            const result = await fadeInAtKey(command.tonic as PitchClass, command.mode);
+            return result.ok ? { applied: true } : { applied: false, reason: result.reason };
+          }
+          return (await runCrossfade(command.tonic as PitchClass, command.mode)).ok
+            ? { applied: true }
+            : { applied: false, reason: "The target pad could not be started." };
         case "prepare":
           prepareKey(command.tonic as PitchClass, command.mode);
           return { applied: true };
@@ -424,23 +722,30 @@ export function WorshipKeysApp() {
           return { applied: true };
         case "switch-now":
           if (!transitionRef.current.target) return { applied: false, reason: "No key is prepared." };
-          switchNow();
-          return { applied: true };
+          return (await switchNow()).ok ? { applied: true } : { applied: false, reason: "The target pad could not be started." };
         case "crescendo":
           runCrescendo();
           return { applied: true };
         case "fade-in":
-          void fadeIn();
-          return { applied: true };
+          {
+            const result = await fadeIn();
+            return result.ok ? { applied: true } : { applied: false, reason: result.reason };
+          }
         case "fade-out":
           fadeOut();
           return { applied: true };
         case "stop-pads":
           stopNow();
           return { applied: true };
+        case "set-pad-settings":
+          applyPadSettings(command.patch);
+          return { applied: true };
+        case "set-muted":
+          setPadMuted(command.muted);
+          return { applied: true };
       }
     },
-    [cancelTransition, fadeIn, fadeOut, prepareKey, runCrescendo, setConcertKey, setlist, stopNow, switchNow],
+    [applyPadSettings, cancelTransition, fadeIn, fadeInAtKey, fadeOut, prepareKey, runCrescendo, runCrossfade, selectSongWithPadTransition, setlist, setPadMuted, song, stopNow, switchNow],
   );
 
   // The handler is registered exactly once. Re-registering on every render
@@ -454,8 +759,7 @@ export function WorshipKeysApp() {
   const { onRunCommand, acknowledge, sendHostState } = session;
   useEffect(() => {
     onRunCommand((messageId, command) => {
-      const result = applyLeaderCommandRef.current(command);
-      acknowledge(messageId, result.applied, result.reason);
+      void applyLeaderCommandRef.current(command).then((result) => acknowledge(messageId, result.applied, result.reason));
     });
     return () => onRunCommand(null);
   }, [onRunCommand, acknowledge]);
@@ -471,13 +775,17 @@ export function WorshipKeysApp() {
       activeSong: song
         ? { id: song.id, title: song.title, artist: song.artist, position: position.position, total: position.total }
         : null,
+      setlist,
       concertKey: spellKey(concertKey, mode, preferences.notation),
       mode,
       timeSignature: song ? formatTimeSignature(song.timeSignature) : "4/4",
       bpm: song?.bpm,
       detectedChord: chordLabel ?? undefined,
-      nashville: nashville?.text,
+      nashville: nashvilleBassNumber ?? undefined,
       chordConfidence: chord?.candidate.confidence,
+      midiPressed: midi.notes.pressed,
+      midiSustained: midi.notes.sustained,
+      midiDeviceName: midi.selectedInput?.name,
       preparedKey: transition.target ? spellKey(transition.target.tonic, transition.target.mode, preferences.notation) : undefined,
       transitionState:
         transition.state === "armed"
@@ -488,6 +796,8 @@ export function WorshipKeysApp() {
               ? ("transitioning" as const)
               : ("idle" as const),
       padState: pads.snapshot?.state ?? ("stopped" as const),
+      padSettings,
+      muted,
       transcript: voice.segments.map((segment) => ({
         id: segment.id,
         text: segment.text,
@@ -504,8 +814,13 @@ export function WorshipKeysApp() {
     chordLabel,
     concertKey,
     mode,
-    nashville?.text,
+    midi.notes.pressed,
+    midi.notes.sustained,
+    midi.selectedInput?.name,
+    nashvilleBassNumber,
     pads.snapshot?.state,
+    padSettings,
+    muted,
     preferences.notation,
     sendHostState,
     sessionRole,
@@ -533,9 +848,6 @@ export function WorshipKeysApp() {
         case "p":
           if (transitionRef.current.state === "playing") prepareKey(((concertKey + 7) % 12) as PitchClass);
           break;
-        case "c":
-          runCrescendo();
-          break;
         case "enter":
           switchNow();
           break;
@@ -555,18 +867,20 @@ export function WorshipKeysApp() {
           if (!event.shiftKey && !event.metaKey) return;
           event.preventDefault();
           const next = neighbourSong(setlist, event.key === "ArrowDown" ? 1 : -1);
-          if (next) setSetlist((current) => selectSong(current, next.id));
+          if (next) void selectSongWithPadTransition(next);
           break;
         }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [cancelTransition, concertKey, fadeIn, fadeOut, prepareKey, runCrescendo, setlist, switchNow, voice, voiceDeviceId]);
+  }, [cancelTransition, concertKey, fadeIn, fadeOut, prepareKey, selectSongWithPadTransition, setlist, switchNow, voice, voiceDeviceId]);
 
   /* ------------------------------------------------------------- rendering */
 
   const position = songPosition(setlist, song?.id);
+  const previousSong = neighbourSong(setlist, -1);
+  const nextSong = neighbourSong(setlist, 1);
   const padState = pads.snapshot?.state ?? "stopped";
   const preparedLabel = transition.target ? spellKey(transition.target.tonic, transition.target.mode, preferences.notation) : null;
   const transitionLabel =
@@ -585,7 +899,7 @@ export function WorshipKeysApp() {
       <LiveModeScreen
         song={song}
         position={position}
-        nashvilleText={nashville?.text ?? null}
+        nashvilleText={nashvilleBassNumber}
         chordLabel={chordLabel}
         concertKeyLabel={spellKey(concertKey, mode, preferences.notation)}
         preparedLabel={preparedLabel}
@@ -602,7 +916,10 @@ export function WorshipKeysApp() {
         <SetlistRail
           setlist={setlist}
           activeSongId={song?.id}
-          onSelect={(songId) => setSetlist((current) => selectSong(current, songId))}
+          onSelect={(songId) => {
+            const target = setlist.songs.find((entry) => entry.id === songId);
+            if (target) void selectSongWithPadTransition(target);
+          }}
           onAddSong={() => setEditingSong({ song: createSong({ padPresetId: pads.presetId }), isNew: true })}
           onEditSong={(songId) => {
             const found = setlist.songs.find((entry) => entry.id === songId);
@@ -612,6 +929,14 @@ export function WorshipKeysApp() {
           unsaved={unsaved}
         />
         <div className="rail-foot">
+          <SetlistTransfer
+            state={createPersistedState(setlist, preferences)}
+            onImport={(state) => {
+              setSetlist(state.setlist);
+              setPreferences(state.preferences);
+            }}
+            onNotice={setStorageNotice}
+          />
           {song ? (
             <button type="button" className="btn tone-quiet" onClick={() => setEditingSong({ song, isNew: false })}>
               Edit current song
@@ -654,6 +979,30 @@ export function WorshipKeysApp() {
             </div>
           </div>
           <div className="btn-row">
+            <button
+              type="button"
+              className="btn tone-quiet"
+              disabled={!previousSong}
+              onClick={() => previousSong && void selectSongWithPadTransition(previousSong)}
+            >
+              ← Previous song
+            </button>
+            <button
+              type="button"
+              className="btn tone-quiet"
+              disabled={!nextSong}
+              onClick={() => nextSong && void selectSongWithPadTransition(nextSong)}
+            >
+              Next song →
+            </button>
+            <button
+              type="button"
+              className="btn tone-quiet"
+              disabled={!song}
+              onClick={() => song && setEditingSong({ song, isNew: false })}
+            >
+              Edit song
+            </button>
             {!audioStarted ? (
               <button type="button" className="btn is-active" onClick={() => void startAudio()}>
                 Enable audio
@@ -698,7 +1047,7 @@ export function WorshipKeysApp() {
           ) : null}
 
           <NowCard
-            nashville={nashville}
+            bassNumber={nashvilleBassNumber}
             chordName={chordLabel}
             confidence={chord?.candidate.confidence ?? 0}
             ambiguous={chord?.detection.ambiguous ?? false}
@@ -720,6 +1069,7 @@ export function WorshipKeysApp() {
               mode={mode}
               readyKeys={audioStarted ? pads.readyKeys : new Set(Array.from({ length: 12 }, (_, index) => index as PitchClass))}
               onSelect={onKeySelected}
+              disabled={transition.state === "transitioning"}
             />
           </div>
 
@@ -745,14 +1095,11 @@ export function WorshipKeysApp() {
             progress={pads.snapshot?.progress ?? 0}
             transitionState={transition.state}
             preparedLabel={preparedLabel}
-            canPrepare={transition.state === "playing" || transition.state === "armed"}
             crescendoActive={pads.snapshot?.crescendoActive ?? false}
             onFadeIn={() => void fadeIn()}
             onFadeOut={fadeOut}
             onStopNow={stopNow}
-            onPrepare={() => prepareKey(((concertKey + 7) % 12) as PitchClass)}
             onCrescendo={runCrescendo}
-            onSwitchNow={switchNow}
             onCancel={cancelTransition}
           />
 
@@ -791,6 +1138,7 @@ export function WorshipKeysApp() {
           padState={padState}
           presets={pads.presets}
           presetId={pads.presetId}
+          mode={mode}
           onPresetChange={(id) => {
             pads.setPresetId(id);
             if (song) setSetlist((current) => updateSong(current, song.id, { padPresetId: id }));
@@ -800,7 +1148,10 @@ export function WorshipKeysApp() {
           muted={muted}
           onToggleMute={toggleMute}
           shimmerMode={pads.snapshot?.shimmerMode ?? "reverb-only"}
-          onImportPads={() => setImportOpen(true)}
+          bpm={padTempoBpm}
+          onBpmChange={(bpm) => {
+            if (song) setSetlist((current) => updateSong(current, song.id, { bpm }));
+          }}
         />
 
         <AudioIoPanel
@@ -816,15 +1167,32 @@ export function WorshipKeysApp() {
           voiceChannels={describeChannelSummary(channels)}
           voiceUsesSelectedTrack={voice.usesSelectedTrack}
           outputLabel={pads.snapshot?.sinkLabel ?? "System default"}
+          outputDevices={devices.outputs}
+          outputDeviceId={outputDeviceId}
           canChooseOutput={outputSupport.canChooseOutput}
           outputHelp={outputSupport.reason}
           onChooseOutput={() => {
             void chooseOutputDevice().then((device) => {
-              if (device) void pads.engine.setOutputDevice(device.deviceId, device.label);
+              if (device) {
+                setOutputDeviceId(device.deviceId);
+                void startAudio().then(() => pads.engine.setOutputDevice(device.deviceId, device.label));
+              }
               refreshDevices();
             });
           }}
-          onResetOutput={() => void pads.engine.resetOutputToSystemDefault()}
+          onSelectOutput={(device) => {
+            if (!device) {
+              setOutputDeviceId("");
+              void pads.engine.resetOutputToSystemDefault();
+              return;
+            }
+            setOutputDeviceId(device.deviceId);
+            void startAudio().then(() => pads.engine.setOutputDevice(device.deviceId, device.label));
+          }}
+          onResetOutput={() => {
+            setOutputDeviceId("");
+            void pads.engine.resetOutputToSystemDefault();
+          }}
           onTestOutput={() => void pads.engine.playTestSignal()}
           meter={pads.meter}
         />
@@ -876,11 +1244,13 @@ export function WorshipKeysApp() {
           connected={session.status === "connected"}
           devices={session.devices}
           remoteLocked={session.snapshot?.remoteControlLocked ?? false}
-          joinsLocked={false}
+          joinsLocked={session.snapshot?.joinsLocked ?? false}
           onToggleRemoteLock={() =>
             session.sendHostCommand({ type: "set-remote-lock", locked: !(session.snapshot?.remoteControlLocked ?? false) })
           }
-          onToggleJoinsLock={() => session.sendHostCommand({ type: "lock-new-joins", locked: true })}
+          onToggleJoinsLock={() =>
+            session.sendHostCommand({ type: "lock-new-joins", locked: !(session.snapshot?.joinsLocked ?? false) })
+          }
           onApproveLeader={(deviceId, approved) => session.sendHostCommand({ type: "set-leader", deviceId, approved })}
           onRevokeDevice={(deviceId) => session.sendHostCommand({ type: "revoke-device", deviceId })}
           onRotatePin={() => {
@@ -908,7 +1278,7 @@ export function WorshipKeysApp() {
             Allow the target key&rsquo;s 4 and 5 to trigger the switch
           </label>
           <p className="hint">
-            Off by default: only the tonic of the prepared key switches automatically. Switch now is always available.
+            Off by default: only the tonic of a voice-prepared key triggers it. Clicking a key always transitions immediately.
           </p>
         </section>
       </aside>
@@ -936,17 +1306,6 @@ export function WorshipKeysApp() {
         />
       ) : null}
 
-      {importOpen ? (
-        <ImportDialog
-          decode={pads.decodeForImport}
-          onClose={() => setImportOpen(false)}
-          onImport={(name, imported) => {
-            const id = `local-${Date.now().toString(36)}`;
-            pads.importLocalPack(buildLocalPreset(id, name, imported), imported);
-            setImportOpen(false);
-          }}
-        />
-      ) : null}
     </div>
   );
 }
@@ -1009,7 +1368,7 @@ function LiveModeScreen({
       <div className="live-foot">
         <div className="status-line">
           <Status tone={padState === "stopped" ? "idle" : "active"} state="Pads" detail={padState} />
-          <Status tone="info" state="Shortcuts" detail="Space fade · P prepare · Enter switch · Esc cancel · L exit" />
+          <Status tone="info" state="Shortcuts" detail="Space fade · C crescendo · Esc cancel · L exit" />
         </div>
       </div>
     </div>

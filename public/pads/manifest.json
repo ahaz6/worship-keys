@@ -1,319 +1,304 @@
 {
-  "version": 1,
-  "generatedBy": "scripts/generate-pads.mjs",
-  "license": "Original synthesis created for Worship Keys. Free to use with this application.",
-  "sampleRate": 44100,
-  "loopSeconds": 6,
+  "version": 4,
+  "generatedBy": "scripts/prepare-sound-walls.mjs",
+  "license": "Sound Walls is derived exclusively from audio supplied by the project owner.",
+  "sampleRate": 48000,
+  "loopSeconds": 24,
   "presets": [
     {
-      "id": "aurora",
-      "name": "Aurora",
-      "description": "Warm neutral drone. Root, fifth and octave with a soft upper haze.",
+      "id": "sound-walls",
+      "name": "Sound Wall Pads",
+      "description": "The final warm, intimate Worship Keys pad with automatic pitch-preserving slow motion for slower songs.",
       "mode": "neutral",
+      "source": "user-provided",
       "keys": [
         {
           "pitchClass": 0,
           "note": "C",
-          "url": "/pads/aurora/00-C.wav",
+          "url": "/pads/sound-walls/00-C.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/00-C.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/00-C.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         },
         {
           "pitchClass": 1,
           "note": "Db",
-          "url": "/pads/aurora/01-Db.wav",
+          "url": "/pads/sound-walls/01-Db.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/01-Db.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/01-Db.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         },
         {
           "pitchClass": 2,
           "note": "D",
-          "url": "/pads/aurora/02-D.wav",
+          "url": "/pads/sound-walls/02-D.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/02-D.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/02-D.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         },
         {
           "pitchClass": 3,
           "note": "Eb",
-          "url": "/pads/aurora/03-Eb.wav",
+          "url": "/pads/sound-walls/03-Eb.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/03-Eb.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/03-Eb.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         },
         {
           "pitchClass": 4,
           "note": "E",
-          "url": "/pads/aurora/04-E.wav",
+          "url": "/pads/sound-walls/04-E.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/04-E.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/04-E.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         },
         {
           "pitchClass": 5,
           "note": "F",
-          "url": "/pads/aurora/05-F.wav",
+          "url": "/pads/sound-walls/05-F.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/05-F.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/05-F.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         },
         {
           "pitchClass": 6,
           "note": "Gb",
-          "url": "/pads/aurora/06-Gb.wav",
+          "url": "/pads/sound-walls/06-Gb.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/06-Gb.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/06-Gb.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         },
         {
           "pitchClass": 7,
           "note": "G",
-          "url": "/pads/aurora/07-G.wav",
+          "url": "/pads/sound-walls/07-G.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/07-G.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/07-G.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         },
         {
           "pitchClass": 8,
           "note": "Ab",
-          "url": "/pads/aurora/08-Ab.wav",
+          "url": "/pads/sound-walls/08-Ab.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/08-Ab.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/08-Ab.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         },
         {
           "pitchClass": 9,
           "note": "A",
-          "url": "/pads/aurora/09-A.wav",
+          "url": "/pads/sound-walls/09-A.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/09-A.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/09-A.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         },
         {
           "pitchClass": 10,
           "note": "Bb",
-          "url": "/pads/aurora/10-Bb.wav",
+          "url": "/pads/sound-walls/10-Bb.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/10-Bb.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/10-Bb.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         },
         {
           "pitchClass": 11,
           "note": "B",
-          "url": "/pads/aurora/11-B.wav",
+          "url": "/pads/sound-walls/11-B.wav?v=natural-slowmo-3",
           "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        }
-      ]
-    },
-    {
-      "id": "cathedral",
-      "name": "Cathedral",
-      "description": "Airy and wide. Lifted upper partials for large rooms and quiet moments.",
-      "mode": "neutral",
-      "keys": [
-        {
-          "pitchClass": 0,
-          "note": "C",
-          "url": "/pads/cathedral/00-C.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 1,
-          "note": "Db",
-          "url": "/pads/cathedral/01-Db.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 2,
-          "note": "D",
-          "url": "/pads/cathedral/02-D.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 3,
-          "note": "Eb",
-          "url": "/pads/cathedral/03-Eb.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 4,
-          "note": "E",
-          "url": "/pads/cathedral/04-E.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 5,
-          "note": "F",
-          "url": "/pads/cathedral/05-F.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 6,
-          "note": "Gb",
-          "url": "/pads/cathedral/06-Gb.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 7,
-          "note": "G",
-          "url": "/pads/cathedral/07-G.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 8,
-          "note": "Ab",
-          "url": "/pads/cathedral/08-Ab.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 9,
-          "note": "A",
-          "url": "/pads/cathedral/09-A.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 10,
-          "note": "Bb",
-          "url": "/pads/cathedral/10-Bb.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 11,
-          "note": "B",
-          "url": "/pads/cathedral/11-B.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        }
-      ]
-    },
-    {
-      "id": "ground",
-      "name": "Ground",
-      "description": "Dark and close. Low fundamental with very little air, for spoken moments.",
-      "mode": "neutral",
-      "keys": [
-        {
-          "pitchClass": 0,
-          "note": "C",
-          "url": "/pads/ground/00-C.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 1,
-          "note": "Db",
-          "url": "/pads/ground/01-Db.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 2,
-          "note": "D",
-          "url": "/pads/ground/02-D.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 3,
-          "note": "Eb",
-          "url": "/pads/ground/03-Eb.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 4,
-          "note": "E",
-          "url": "/pads/ground/04-E.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 5,
-          "note": "F",
-          "url": "/pads/ground/05-F.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 6,
-          "note": "Gb",
-          "url": "/pads/ground/06-Gb.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 7,
-          "note": "G",
-          "url": "/pads/ground/07-G.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 8,
-          "note": "Ab",
-          "url": "/pads/ground/08-Ab.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 9,
-          "note": "A",
-          "url": "/pads/ground/09-A.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 10,
-          "note": "Bb",
-          "url": "/pads/ground/10-Bb.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
-        },
-        {
-          "pitchClass": 11,
-          "note": "B",
-          "url": "/pads/ground/11-B.wav",
-          "loopStart": 0,
-          "loopEnd": 6,
-          "gainTrim": 1
+          "loopEnd": 24,
+          "gainTrim": 0.9,
+          "tempoVariants": [
+            {
+              "maxBpm": 120,
+              "url": "/pads/sound-walls-slow/11-B.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            },
+            {
+              "maxBpm": 80,
+              "url": "/pads/sound-walls-deep-slow/11-B.wav?v=natural-slowmo-3",
+              "loopStart": 0,
+              "loopEnd": 24,
+              "gainTrim": 0.9
+            }
+          ]
         }
       ]
     }

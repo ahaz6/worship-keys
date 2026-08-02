@@ -2,6 +2,7 @@
 
 import { BrandMark } from "@/components/brand/brand-mark";
 import { Status } from "@/components/common/status";
+import { KeyboardStrip } from "@/components/midi/keyboard-strip";
 import type { LiveSessionSnapshot } from "@/lib/session/protocol";
 
 /**
@@ -59,6 +60,20 @@ export function ViewerView({
       </div>
 
       <div className="live-foot">
+        {snapshot ? (
+          <div className="leader-keyboard-layer viewer-keyboard-layer">
+            <div className="section-title">
+              <span>Keyboard layer</span>
+              <span>{snapshot.midiPressed.length + snapshot.midiSustained.length} active</span>
+            </div>
+            <KeyboardStrip
+              pressed={snapshot.midiPressed}
+              sustained={snapshot.midiSustained}
+              deviceName={snapshot.midiDeviceName ?? null}
+            />
+          </div>
+        ) : null}
+
         <div className="transcript">
           <span className="label">Voice transcript</span>
           {transcript.length === 0 ? <p className="interim">Nothing heard yet.</p> : null}

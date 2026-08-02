@@ -16,28 +16,22 @@ export function TransportDock({
   progress,
   transitionState,
   preparedLabel,
-  canPrepare,
   crescendoActive,
   onFadeIn,
   onFadeOut,
   onStopNow,
-  onPrepare,
   onCrescendo,
-  onSwitchNow,
   onCancel,
 }: {
   padState: PadState;
   progress: number;
   transitionState: TransitionState;
   preparedLabel: string | null;
-  canPrepare: boolean;
   crescendoActive: boolean;
   onFadeIn: () => void;
   onFadeOut: () => void;
   onStopNow: () => void;
-  onPrepare: () => void;
   onCrescendo: () => void;
-  onSwitchNow: () => void;
   onCancel: () => void;
 }) {
   const fadingIn = padState === "fading-in";
@@ -117,19 +111,13 @@ export function TransportDock({
       </div>
 
       <div className="dock-actions">
-        <button type="button" className="btn" onClick={onPrepare} disabled={!canPrepare || !running}>
-          Prepare
-        </button>
         <button
           type="button"
           className={`btn${crescendoActive ? " is-active" : ""}`}
           onClick={onCrescendo}
           disabled={!running}
         >
-          {crescendoActive ? "Crescendo running" : "Crescendo"}
-        </button>
-        <button type="button" className="btn" onClick={onSwitchNow} disabled={!armed}>
-          Switch now
+          {crescendoActive ? "Release crescendo" : "Crescendo"}
         </button>
         <button type="button" className="btn tone-quiet" onClick={onCancel} disabled={!armed && !crescendoActive}>
           Cancel
@@ -138,8 +126,7 @@ export function TransportDock({
 
       {armed ? (
         <p className="hint">
-          Waiting for the tonic of {preparedLabel}. Play it to switch, or use Switch now. Sustained notes from the
-          current key will not trigger it.
+          A voice or MIDI command prepared {preparedLabel}. Choose any key above to transition there immediately.
         </p>
       ) : null}
     </section>

@@ -7,6 +7,14 @@ export type PadKeyAsset = {
   loopStart: number;
   loopEnd: number;
   gainTrim: number;
+  /** Pitch-preserving offline renders selected automatically from song BPM. */
+  tempoVariants?: {
+    maxBpm: number;
+    url: string;
+    loopStart: number;
+    loopEnd: number;
+    gainTrim: number;
+  }[];
 };
 
 export type PadPreset = {

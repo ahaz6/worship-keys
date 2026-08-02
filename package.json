@@ -10,11 +10,12 @@
     "dev": "node server.mjs",
     "build": "next build",
     "start": "NODE_ENV=production node server.mjs",
-    "pads:generate": "node scripts/generate-pads.mjs",
+    "pads:prepare": "node scripts/prepare-sound-walls.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
@@ -27,6 +28,7 @@
     "zod": "4.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
