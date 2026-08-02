@@ -28,6 +28,11 @@ import {
 } from "@/lib/storage/setlist-operations";
 
 describe("setlist editing", () => {
+  it("creates every new song at the 70 BPM worship default", () => {
+    expect(createSong().bpm).toBe(70);
+    expect(createSong({ bpm: 84 }).bpm).toBe(84);
+  });
+
   it("appends new songs instead of overwriting existing ones", () => {
     let setlist = createSetlist();
     setlist = addSong(setlist, createSong({ title: "First" }));

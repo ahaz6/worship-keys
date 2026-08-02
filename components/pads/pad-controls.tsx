@@ -33,8 +33,8 @@ export const PAD_DEFAULTS: PadSettings = {
   crescendoSeconds: PAD_LIMITS.crescendoSeconds.default,
 };
 
-/** The midpoint of the visible 40–180 BPM range. */
-export const DEFAULT_PAD_TEMPO_BPM = 110;
+/** Calm default for worship and soaking songs. */
+export const DEFAULT_PAD_TEMPO_BPM = 70;
 
 /**
  * Right-rail pad controls (Design-Art.md 9.8).

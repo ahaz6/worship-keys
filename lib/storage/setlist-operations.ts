@@ -9,6 +9,8 @@
 import type { PitchClass } from "@/lib/music/pitch";
 import type { Setlist, Song } from "./schema";
 
+const DEFAULT_SONG_BPM = 70;
+
 export function createSongId(): string {
   return `song-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -21,7 +23,7 @@ export function createSong(overrides: Partial<Song> = {}): Song {
     concertKey: overrides.concertKey ?? 0,
     mode: overrides.mode ?? "major",
     timeSignature: overrides.timeSignature ?? { numerator: 4, denominator: 4 },
-    bpm: overrides.bpm,
+    bpm: overrides.bpm ?? DEFAULT_SONG_BPM,
     padPresetId: overrides.padPresetId ?? "sound-walls",
     mainVolume: overrides.mainVolume,
     shimmerLevel: overrides.shimmerLevel,

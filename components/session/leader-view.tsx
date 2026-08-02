@@ -69,11 +69,40 @@ export function LeaderView({
     activeSongIndex >= 0 && activeSongIndex < (snapshot?.setlist?.songs.length ?? 0) - 1
       ? snapshot?.setlist?.songs[activeSongIndex + 1]
       : undefined;
+  const visibleMessage = lastMessage === "The host granted leader access." ? null : lastMessage;
 
   return (
     <div className="live-shell">
-      <div className="live-top">
+      <div className="live-top leader-live-top">
         <BrandMark size={38} />
+        <div className="leader-top-transport" aria-label="Pad transport">
+          <button
+            type="button"
+            className="transport-btn leader-top-transport-button"
+            disabled={locked || pendingCommand}
+            onClick={() => onCommand({ type: "fade-in" })}
+          >
+            <span className="arrow" aria-hidden="true">▲</span>
+            Fade in
+          </button>
+          <button
+            type="button"
+            className="transport-btn leader-top-transport-button"
+            disabled={locked || pendingCommand || !playing}
+            onClick={() => onCommand({ type: "fade-out" })}
+          >
+            <span className="arrow" aria-hidden="true">▼</span>
+            Fade out
+          </button>
+          <button
+            type="button"
+            className="transport-btn leader-top-transport-button"
+            disabled={locked || pendingCommand || !playing}
+            onClick={() => onCommand({ type: "crescendo" })}
+          >
+            {snapshot?.transitionState === "crescendo" ? "Release crescendo" : "Crescendo"}
+          </button>
+        </div>
         <div className="btn-row">
           <button
             type="button"
@@ -90,9 +119,9 @@ export function LeaderView({
       </div>
 
       {locked ? <div className="callout tone-warn">Remote control is locked by the host.</div> : null}
-      {lastMessage ? (
+      {visibleMessage ? (
         <div className="callout">
-          <span>{lastMessage}</span>
+          <span>{visibleMessage}</span>
           <span className="callout-actions">
             <button type="button" className="btn tone-quiet" onClick={onDismissMessage} aria-label="Dismiss message">
               ×
@@ -200,22 +229,6 @@ export function LeaderView({
         ) : null}
 
         <div className="dock-actions">
-          <button type="button" className="transport-btn" disabled={locked || pendingCommand} onClick={() => onCommand({ type: "fade-in" })}>
-            <span className="arrow" aria-hidden="true">▲</span>
-            Fade in
-          </button>
-          <button
-            type="button"
-            className="transport-btn"
-            disabled={locked || pendingCommand || !playing}
-            onClick={() => onCommand({ type: "fade-out" })}
-          >
-            <span className="arrow" aria-hidden="true">▼</span>
-            Fade out
-          </button>
-          <button type="button" className="btn" disabled={locked || pendingCommand || !playing} onClick={() => onCommand({ type: "crescendo" })}>
-            {snapshot?.transitionState === "crescendo" ? "Release crescendo" : "Crescendo"}
-          </button>
           <button type="button" className="transport-btn tone-stop" disabled={locked || pendingCommand} onClick={() => onCommand({ type: "stop-pads" })}>
             Stop now
           </button>

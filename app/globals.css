@@ -1220,6 +1220,60 @@ textarea:focus {
   gap: 20px;
 }
 
+.leader-live-top {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto minmax(150px, 1fr);
+}
+
+.leader-live-top > :first-child {
+  justify-self: start;
+}
+
+.leader-live-top > .btn-row {
+  justify-self: end;
+}
+
+.leader-top-transport {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.leader-top-transport-button {
+  min-width: 112px;
+  min-height: 40px;
+  padding: 0 13px;
+}
+
+@media (max-width: 850px) {
+  .leader-live-top {
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+  }
+
+  .leader-top-transport-button {
+    min-width: 92px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 680px) {
+  .leader-live-top {
+    grid-template-columns: 1fr auto;
+  }
+
+  .leader-top-transport {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  .leader-top-transport-button {
+    flex: 1;
+  }
+}
+
 .role-chip {
   display: inline-flex;
   align-items: center;
