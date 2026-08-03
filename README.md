@@ -21,7 +21,8 @@ It is part of the Worship suite and shares its art direction with Worship Loops.
   borrowed and chromatic chords and explicit input transpose.
 - **Prepared transitions**: arm the next key, then play its tonic to trigger the
   crossfade — or use `Switch now`. Sustained notes from the old key cannot fire it.
-- **Setlists** with key, mode, time signature and pad preset, saved locally.
+- **Setlists** are prepared directly in `/play` and automatically saved in the
+  current browser through IndexedDB. A manual `Save setlist` action is included.
 - **Voice commands** as progressive enhancement (`Prepare G`, `Crescendo`, …).
 - **Cloud Live session**: the Vercel host creates a QR link and musician devices
   receive Nashville, setlist, keyboard and leader controls through Supabase

@@ -10,6 +10,7 @@ test("public cloud performance mode loads pads without a LAN session", async ({ 
   await expect(page.getByRole("button", { name: "IP Connect", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Live session" })).toBeVisible();
   await expect(page.getByText(/Supabase Realtime · Vercel/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Cloud planner" })).toHaveCount(0);
 
   const manifest = await page.request.get("/manifest.webmanifest");
   expect(manifest.ok()).toBe(true);
@@ -18,4 +19,20 @@ test("public cloud performance mode loads pads without a LAN session", async ({ 
   await page.getByRole("button", { name: "Enable audio", exact: true }).click();
   await expect(page.getByText("12 of 12 ready", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Fade in", exact: true })).toBeEnabled();
+});
+
+test("the play app saves Saturday preparation locally and /cloud redirects to it", async ({ page }) => {
+  await page.goto("/play");
+  const setlistName = page.getByLabel("Setlist name");
+  await setlistName.fill("Saturday preparation");
+  await page.getByRole("button", { name: "Save setlist", exact: true }).first().click();
+  await expect(page.getByText("Setlist saved on this device.", { exact: true })).toBeVisible();
+
+  await page.reload();
+  await expect(setlistName).toHaveValue("Saturday preparation");
+  await expect(page.getByText("Saved", { exact: true }).first()).toBeVisible();
+
+  await page.goto("/cloud");
+  await expect(page).toHaveURL(/\/play$/);
+  await expect(page.getByLabel("Setlist name")).toHaveValue("Saturday preparation");
 });

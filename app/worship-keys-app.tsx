@@ -167,6 +167,22 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
     return () => clearTimeout(timer);
   }, [setlist, preferences]);
 
+  const saveSetlistNow = useCallback(async () => {
+    const repository = repositoryRef.current;
+    if (!repository) {
+      setStorageNotice("Local setlist storage is still starting. Try again in a moment.");
+      return;
+    }
+    setUnsaved(true);
+    try {
+      await repository.save(createPersistedState(setlist, preferences));
+      setUnsaved(false);
+      setStorageNotice("Setlist saved on this device.");
+    } catch {
+      setStorageNotice("The setlist could not be saved on this device.");
+    }
+  }, [preferences, setlist]);
+
   /* ------------------------------------------------------------- pad audio */
 
   const applyPadSettings = useCallback(
@@ -1004,11 +1020,21 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
           >
             Spelling: {preferences.notation}
           </button>
-          {runtime === "cloud" ? (
-            <a className="btn tone-quiet" href="/cloud">
-              Cloud planner
-            </a>
-          ) : null}
+          <button type="button" className={`btn${unsaved ? " is-active" : " tone-quiet"}`} onClick={() => void saveSetlistNow()}>
+            Save setlist
+          </button>
+          <button
+            type="button"
+            className="btn tone-danger"
+            disabled={setlist.songs.length === 0}
+            onClick={() => {
+              if (!window.confirm("Clear every song from this setlist? This cannot be undone.")) return;
+              setSetlist((current) => ({ ...current, songs: [], activeSongId: undefined }));
+              setStorageNotice("Setlist cleared. The empty setlist is being saved on this device.");
+            }}
+          >
+            Clear setlist
+          </button>
         </div>
       </aside>
 
@@ -1035,13 +1061,10 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
                 }}
                 onNotice={setStorageNotice}
               />
-            ) : (
-              <>
-                <a className="btn tone-quiet" href="/cloud">
-                  Cloud planner
-                </a>
-              </>
-            )}
+            ) : null}
+            <button type="button" className={`btn${unsaved ? " is-active" : " tone-quiet"}`} onClick={() => void saveSetlistNow()}>
+              {unsaved ? "Save setlist" : "Saved on this device"}
+            </button>
             <button
               type="button"
               className="btn tone-quiet"

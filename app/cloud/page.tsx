@@ -1,6 +1,5 @@
-import { CloudPlanner } from "../cloud-planner";
+import { redirect } from "next/navigation";
 
 export default function CloudPage() {
-  return <CloudPlanner />;
+  redirect("/play");
 }
-

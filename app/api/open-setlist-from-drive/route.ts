@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 
   if (!trustedHost && !userId) {
     return NextResponse.json(
-      { error: "This Mac is not paired for Drive access. Sign in to the cloud planner once or pair the church host." },
+      { error: "This Mac is not paired for Drive access. Pair the church host or use an authorized account." },
       { status: 401 },
     );
   }

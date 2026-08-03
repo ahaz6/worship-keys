@@ -24,7 +24,7 @@ desktop/tablet review and the central Playwright host flows.
 | 8 | Local live session: host, leader, viewer over WebSocket | Done |
 | 9 | Hardening | Partial — see §7 |
 | 10 | GitHub publication | Done — see §9 |
-| 11 | Public Vercel performance app, cloud planner, Drive deploy/import | Done — see §4 and §6 |
+| 11 | Public Vercel performance app and Drive import endpoints | Done — see §4 and §6 |
 | 12 | Serverless Cloud Live host + QR Join UI through Supabase Realtime | Done — see §3 and §4 |
 
 ## 2. Architecture
@@ -130,8 +130,8 @@ The leader PIN is stored as a salted hash for the session's lifetime.
 the public host at `/` and `/play`. The host tab creates a random high-entropy
 room, displays a `/join?cloud=1&t=…` QR link, publishes its snapshot through
 Supabase Realtime and executes acknowledged Leader commands. Web Audio and MIDI
-never leave that tab. The planner stays at `/cloud`; `server.mjs` is now only an
-optional offline/LAN fallback.
+never leave that tab. Setlist preparation now happens directly in `/play`;
+`/cloud` redirects there. `server.mjs` is only an optional offline/LAN fallback.
 
 **Prepared pad loops belong in the Vercel artifact.** `.vercelignore` excludes
 the owner-supplied source recordings but deliberately includes `public/pads/`.
@@ -206,8 +206,8 @@ Exercised in a production build in a real browser, not only in unit tests:
 - Desktop 1440×900, tablet landscape 1024×768 and tablet portrait 768×1024 were
   reviewed; the portrait rail collapses to a compact band so the performance
   stage stays above the fold.
-- The production cloud planner deploys the current schema-valid JSON to the
-  fixed Drive file through the service account.
+- The legacy protected Drive endpoints remain available, but there is no
+  separate cloud-planner UI anymore.
 - The local main UI imports that fixed Drive file with one click through the
   paired-host route: real production verification returned HTTP 200, the exact
   file name, and the Drive setlist name. A direct unauthenticated production
@@ -217,8 +217,8 @@ Exercised in a production build in a real browser, not only in unit tests:
 - That production root opens the public performance UI without authentication,
   exposes `Connect MIDI keyboard`, loads all twelve Sound Wall keys after the
   required audio gesture and advertises an installable standalone web manifest.
-- `/cloud` remains the authenticated Supabase planner. `/play` is the stable
-  explicit performance route, including on the local server for verification.
+- `/play` is the single preparation and performance route. `/cloud` redirects
+  there, including on the local server for verification.
 - `Show join code` on the Vercel host creates a Cloud Live QR link. A clean
   second Chrome profile was verified joining as Viewer, receiving the complete
   snapshot, upgrading with the six-digit PIN and changing songs through the
@@ -253,7 +253,7 @@ Five real bugs were found this way and fixed:
 setlist workflows plus the live host → viewer → leader session in Chrome.
 
 The current verification baseline is **159 passing Vitest tests across 10 test
-files**, plus typecheck, ESLint, all **6 Playwright browser flows** (including a
+files**, plus typecheck, ESLint, all **7 Playwright browser flows** (including a
 real two-profile Supabase Cloud Live session) and a successful Next production
 build. Dynamic routes include `/api/deploy-setlist`,
 `/api/open-setlist-from-drive` and `/api/session/qr`.
