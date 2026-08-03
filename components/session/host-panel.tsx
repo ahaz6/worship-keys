@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/common/modal";
 import { Status } from "@/components/common/status";
+import { isPrivateIPv4 } from "@/lib/session/lan-addresses";
 import type { ConnectedDevice } from "@/lib/session/protocol";
 
 export type HostBootstrap = {
@@ -38,6 +39,10 @@ export function HostPanel({
   onRevokeDevice,
   onRotatePin,
   onShowJoin,
+  setlistSongCount,
+  setlistSaved,
+  padKeysReady,
+  audioStarted,
 }: {
   bootstrap: HostBootstrap | null;
   bootstrapError: string | null;
@@ -51,23 +56,34 @@ export function HostPanel({
   onRevokeDevice: (deviceId: string) => void;
   onRotatePin: () => void;
   onShowJoin?: () => void;
+  setlistSongCount: number;
+  setlistSaved: boolean;
+  padKeysReady: number;
+  audioStarted: boolean;
 }) {
   const [joinOpen, setJoinOpen] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
+  const localChurchMode = Boolean(bootstrap && bootstrap.transport !== "cloud");
+  const joinUrl = localChurchMode ? bootstrap?.localJoinUrl : bootstrap?.cloudJoinUrl;
+  const preferredAddress = bootstrap?.addresses[0]?.address ?? null;
+  const routerReady = Boolean(preferredAddress && isPrivateIPv4(preferredAddress));
+  const padsReady = audioStarted && padKeysReady === 12;
+  const setlistReady = setlistSongCount > 0 && setlistSaved;
+  const offlineReady = Boolean(localChurchMode && connected && routerReady && padsReady && setlistReady);
 
   const openAndCopyJoinLink = async () => {
-    if (!bootstrap) return;
+    if (!bootstrap || !joinUrl) return;
     // This click is a trusted host gesture, so it is the safest moment to
     // unlock Web Audio before a remote Leader can request a fade.
     onShowJoin?.();
     setJoinOpen(true);
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(bootstrap.cloudJoinUrl);
+        await navigator.clipboard.writeText(joinUrl);
       } else {
         const field = document.createElement("textarea");
-        field.value = bootstrap.cloudJoinUrl;
+        field.value = joinUrl;
         field.style.position = "fixed";
         field.style.opacity = "0";
         document.body.appendChild(field);
@@ -84,9 +100,9 @@ export function HostPanel({
 
   // The QR image is fetched only while the join dialog is actually open.
   useEffect(() => {
-    if (!joinOpen || !bootstrap) return;
+    if (!joinOpen || !bootstrap || !joinUrl) return;
     let cancelled = false;
-    fetch(`/api/session/qr?url=${encodeURIComponent(bootstrap.cloudJoinUrl)}`)
+    fetch(`/api/session/qr?url=${encodeURIComponent(joinUrl)}`)
       .then((response) => response.json())
       .then((body: { dataUrl?: string }) => {
         if (!cancelled && body.dataUrl) setQr(body.dataUrl);
@@ -95,7 +111,7 @@ export function HostPanel({
     return () => {
       cancelled = true;
     };
-  }, [joinOpen, bootstrap]);
+  }, [joinOpen, bootstrap, joinUrl]);
 
   const others = devices.filter((device) => device.role !== "host");
   const waiting = others.filter((device) => device.leaderRequested);
@@ -103,9 +119,30 @@ export function HostPanel({
   return (
     <section className="panel-card" aria-label="Live session">
       <div className="section-title" style={{ padding: 0 }}>
-        <span>Live session</span>
+        <span>{localChurchMode ? "Offline Church Mode" : "Live session"}</span>
         <span>{others.length} device{others.length === 1 ? "" : "s"}</span>
       </div>
+
+      {localChurchMode ? (
+        <div className={`church-readiness${offlineReady ? " is-ready" : ""}`}>
+          <div className="church-readiness-head">
+            <span className="eyebrow">Sunday readiness</span>
+            <strong>{offlineReady ? "READY · INTERNET NOT REQUIRED" : "PREPARATION NEEDED"}</strong>
+          </div>
+          <div className="church-check-grid">
+            <span className={connected ? "is-ready" : ""}><b>{connected ? "✓" : "○"}</b> Local host</span>
+            <span className={routerReady ? "is-ready" : ""}><b>{routerReady ? "✓" : "○"}</b> Router IP {preferredAddress ?? "missing"}</span>
+            <span className={setlistReady ? "is-ready" : ""}><b>{setlistReady ? "✓" : "○"}</b> Setlist {setlistSongCount > 0 ? setlistSaved ? "saved" : "saving" : "empty"}</span>
+            <span className={padsReady ? "is-ready" : ""}><b>{padsReady ? "✓" : "○"}</b> Pads {audioStarted ? `${padKeysReady}/12` : "not checked"}</span>
+          </div>
+          {!routerReady ? <p className="hint">Connect this Mac to the church router or access point before showing the QR code.</p> : null}
+          {!padsReady ? (
+            <button type="button" className="btn is-active" onClick={onShowJoin}>
+              Check all offline pads
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {bootstrapError ? (
         <div className="callout tone-warn">{bootstrapError}</div>
@@ -118,8 +155,8 @@ export function HostPanel({
       )}
 
       <div className="btn-row">
-        <button type="button" className="btn" onClick={() => void openAndCopyJoinLink()} disabled={!bootstrap}>
-          Show join code
+        <button type="button" className="btn" onClick={() => void openAndCopyJoinLink()} disabled={!bootstrap || (localChurchMode && !routerReady)}>
+          {localChurchMode ? "Show local join QR" : "Show join code"}
         </button>
         <button type="button" className={`btn${remoteLocked ? " is-active" : ""}`} onClick={onToggleRemoteLock}>
           {remoteLocked ? "Remote control locked" : "Lock remote control"}
@@ -178,7 +215,7 @@ export function HostPanel({
           <div className="qr">
             {qr ? (
               // eslint-disable-next-line @next/next/no-img-element -- data URL generated per session, not a static asset
-              <img src={qr} alt={`QR code for ${bootstrap.cloudJoinUrl}`} />
+              <img src={qr} alt={`QR code for ${joinUrl}`} />
             ) : (
               <span className="hint" style={{ color: "#333" }}>
                 Generating…
@@ -188,7 +225,7 @@ export function HostPanel({
           <div className="field">
             <span className="label">Join address</span>
             <strong className="mono" style={{ fontSize: 13, wordBreak: "break-all" }}>
-              {bootstrap.cloudJoinUrl}
+              {joinUrl}
             </strong>
           </div>
           <div className="field">
@@ -217,7 +254,7 @@ export function HostPanel({
           <p className="hint" style={{ marginTop: 12 }}>
             {bootstrap.transport === "cloud"
               ? "The Vercel host tab owns MIDI and pad audio. Join devices receive the live Nashville, setlist and controls through Supabase Realtime; no local server is required."
-              : <>The Vercel Join UI connects directly to this Mac. If that is blocked, open <a href={bootstrap.localJoinUrl}>{bootstrap.localJoinUrl}</a>.</>}
+              : <>This QR stays entirely inside the local church network and connects directly to this Mac. Internet, Vercel and Supabase are not used.</>}
           </p>
         </Modal>
       ) : null}

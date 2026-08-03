@@ -2,15 +2,15 @@ import { expect, test } from "@playwright/test";
 
 test("viewer joins and upgrades to leader without duplicate reconnects", async ({ browser, page, request }) => {
   test.setTimeout(60_000);
+  const externalRequests: string[] = [];
+  page.on("request", (outgoing) => {
+    if (!outgoing.url().startsWith("http://127.0.0.1:3100")) externalRequests.push(outgoing.url());
+  });
   await page.goto("/");
-  await expect(page.getByText("HOST · LIVE", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Show join code", exact: true }).click();
+  await expect(page.getByText("OFFLINE CHURCH · LIVE", { exact: true })).toBeVisible();
+  await expect(page.getByText("Offline Church Mode", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Show local join QR", exact: true }).click();
   await expect(page.getByText("12 of 12 ready", { exact: true })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Close", exact: true }).click();
-  await page.locator("#slider-fade-in").fill("2");
-  await page.locator("#slider-fade-out").fill("2");
-  await page.locator("#slider-crossfade").fill("2");
-  await page.locator("#slider-crescendo").fill("1");
 
   const bootstrapResponse = await request.get("/api/session/bootstrap");
   expect(bootstrapResponse.ok()).toBe(true);
@@ -23,6 +23,15 @@ test("viewer joins and upgrades to leader without duplicate reconnects", async (
   expect(bootstrap.cloudJoinUrl).toContain("https://worship-keys-psi.vercel.app/join?host=");
   expect(bootstrap.cloudJoinUrl).toContain(`t=${bootstrap.viewerToken}`);
   expect(bootstrap.localJoinUrl).toContain(`/join?t=${bootstrap.viewerToken}`);
+  await expect(page.getByText(bootstrap.localJoinUrl, { exact: true })).toBeVisible();
+  await expect(page.getByText("This QR stays entirely inside the local church network", { exact: false })).toBeVisible();
+  await expect(page.getByText("READY · INTERNET NOT REQUIRED", { exact: true })).toBeVisible();
+  expect(externalRequests).toEqual([]);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.locator("#slider-fade-in").fill("2");
+  await page.locator("#slider-fade-out").fill("2");
+  await page.locator("#slider-crossfade").fill("2");
+  await page.locator("#slider-crescendo").fill("1");
 
   const preflight = await request.fetch("/api/session/leader", {
     method: "OPTIONS",
@@ -38,10 +47,15 @@ test("viewer joins and upgrades to leader without duplicate reconnects", async (
 
   const deviceContext = await browser.newContext();
   const device = await deviceContext.newPage();
+  const deviceExternalRequests: string[] = [];
+  device.on("request", (outgoing) => {
+    if (!outgoing.url().startsWith("http://127.0.0.1:3100")) deviceExternalRequests.push(outgoing.url());
+  });
   await device.goto(`/join?host=127.0.0.1:3100&t=${bootstrap.viewerToken}`);
   await device.getByLabel("Device name").fill("Pianist iPad");
   await device.getByRole("button", { name: "Join", exact: true }).click();
   await expect(device.getByText("VIEW ONLY · LIVE", { exact: true })).toBeVisible();
+  expect(deviceExternalRequests).toEqual([]);
 
   await device.getByRole("button", { name: "Request leader access", exact: true }).click();
   await device.getByLabel("Leader PIN").fill(bootstrap.leaderPin);

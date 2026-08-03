@@ -166,16 +166,33 @@ state messages also do not inject schema defaults. This prevents valid leader
 commands from becoming stale and prevents a held Crescendo or spatial XY value
 from being reset by another fader packet.
 
-**The Vercel Join UI supports Cloud Live and the older LAN fallback.** Cloud
+**The Vercel Join UI supports Cloud Live and Offline Church Mode.** Cloud
 links subscribe to the host's opaque Supabase room without private-IP browser
-permission. The optional local host
-places its private IP and viewer token into the public `/join?host=…&t=…` URL.
-That static page opens `ws://<private-ip>/session` directly after the browser's
+permission. The installed macOS church host shows a private
+`http://<private-ip>/join?t=…` QR and also retains the public
+`/join?host=…&t=…` compatibility URL. The Join page opens
+`ws://<private-ip>/session` directly after the browser's
 Local Network Access permission and never relays live notes through Vercel.
 Only RFC1918, link-local, loopback and `.local` destinations are accepted. The
 leader-PIN HTTP exchange has exact-origin CORS/LNA headers for the production
 Vercel origin. Tokens are stored per LAN host so two churches cannot reuse each
 other's device identity accidentally.
+
+**Offline Church Mode is the recommended Sunday runtime.** `npm run
+church:install` creates `~/Applications/Worship Keys Church.app` with the
+original app icon. It launches the production host without a Terminal window,
+prefers a physical private interface over VPN/bridge interfaces, and writes its
+log to `~/Library/Logs/Worship Keys/church-host.log`. The host UI never renders
+the Vercel URL in this mode: its QR points directly at the selected RFC1918
+address. The readiness card verifies local hosting, a private router address, a
+non-empty saved setlist and all 12 decoded pad keys. Once ready, host and Join
+pages make no external browser requests. Internet, Vercel, Supabase and Google
+Drive are therefore outside the live-service path.
+
+The church Mac may connect by Ethernet. Phones and tablets still need a Wi-Fi
+access point bridged into that router if the router itself has no wireless
+radio. No internet uplink is required. See `OFFLINE-CHURCH.md` for the complete
+pre-service and Sunday checklist.
 
 ## 4. Verified behaviour
 
@@ -255,10 +272,10 @@ Five real bugs were found this way and fixed:
 `npm test` runs the Vitest unit and asset suites. `npm run test:e2e` exercises
 setlist workflows plus the live host → viewer → leader session in Chrome.
 
-The current verification baseline is **159 passing Vitest tests across 10 test
+The current verification baseline is **162 passing Vitest tests across 11 test
 files**, plus typecheck, ESLint, all **7 Playwright browser flows** (including a
-real two-profile Supabase Cloud Live session) and a successful Next production
-build. Dynamic routes include `/api/deploy-setlist`,
+real two-profile Supabase Cloud Live session and an offline host/device request
+audit) and a successful Next production build. Dynamic routes include `/api/deploy-setlist`,
 `/api/open-setlist-from-drive` and `/api/session/qr`.
 
 - `tests/nashville.test.ts` — every mandatory case from spec 12.4, all 12 roots
@@ -400,4 +417,7 @@ Required server-only Vercel variables are documented in `.env.example`:
 5. Do not move Google credentials into the local host. Keep Drive writes on
    Vercel and keep the Mac's authority limited to the paired read token.
 6. Before a service, deploy the intended cloud setlist, click `Open setlist from
-   Drive` on the church Mac, verify the song count, and only then start audio.
+   Drive` on the church Mac while internet is available, verify the song count,
+   and confirm `Saved on this device`.
+7. On Sunday, open `Worship Keys Church.app`, run `Check all offline pads`, wait
+   for `READY · INTERNET NOT REQUIRED`, then share only the local QR.

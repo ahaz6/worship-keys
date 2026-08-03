@@ -3,6 +3,9 @@ import { expect, test } from "@playwright/test";
 test("ships only Sound Walls and provides header song controls", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Gathering" })).toBeVisible();
+  await expect(page.getByText("OFFLINE CHURCH · LIVE", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show local join QR", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show join code", exact: true })).toHaveCount(0);
 
   const preset = page.locator("#pad-preset");
   await expect(preset).toHaveValue("sound-walls");

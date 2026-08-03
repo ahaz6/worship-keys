@@ -29,8 +29,10 @@ It is part of the Worship suite and shares its art direction with Worship Loops.
 - **Cloud Live session**: the Vercel host creates a QR link and musician devices
   receive Nashville, setlist, keyboard and leader controls through Supabase
   Realtime. Pad audio remains in the host browser; no local server is required.
-- **Optional local session**: `npm start` retains the offline-friendly LAN
-  WebSocket mode as a fallback.
+- **Offline Church Mode**: the installed macOS launcher starts the complete
+  audio host without Terminal, detects the church-router address, verifies the
+  saved setlist and all 12 pad keys, and creates a private local Join QR. Live
+  audio, MIDI, Nashville and leader control continue without internet.
 
 ## Requirements
 
@@ -49,7 +51,18 @@ npm start
 For the standalone app, open the Vercel `/play` page, choose **Show join code**
 and scan the QR code. Keep that host tab open during the service.
 
-For the optional local fallback, the host prints its LAN address and PIN:
+For Sunday offline use, install the one-click macOS launcher once:
+
+```bash
+npm run church:install
+```
+
+Then open **Worship Keys Church** from the current user's Applications folder.
+The host automatically chooses the best private Ethernet/Wi-Fi address and
+shows **READY · INTERNET NOT REQUIRED** after the local setlist and all pad keys
+have been checked. Full instructions are in `OFFLINE-CHURCH.md`.
+
+The command-line host remains available and prints its LAN address and PIN:
 
 ```
   Worship Keys — host ready
@@ -72,6 +85,7 @@ appear on a device that merely shares the network.
 | `npm run dev` | Development server with the live session attached |
 | `npm run build` | Production build |
 | `npm start` | Production host server, bound to `0.0.0.0` |
+| `npm run church:install` | Build and install the one-click Offline Church macOS app |
 | `npm test` | Music theory, MIDI, audio curve, setlist and session tests |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
@@ -90,5 +104,6 @@ is included.
 ## Documentation
 
 - `HANDOFF.md` — architecture, decisions, known limits and next steps
+- `OFFLINE-CHURCH.md` — setup and Sunday checklist for a router without internet
 - `Worship-Keys.md` — the product specification this was built from
 - `Design-Art.md` — the shared Worship suite art direction

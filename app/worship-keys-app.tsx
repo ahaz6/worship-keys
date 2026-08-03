@@ -1097,10 +1097,10 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
               {runtime === "cloud"
                 ? session.status === "connected" ? "CLOUD HOST · LIVE" : "CLOUD HOST"
                 : session.status === "connected"
-                  ? "HOST · LIVE"
+                  ? "OFFLINE CHURCH · LIVE"
                   : session.status === "reconnecting"
-                    ? "HOST · RECONNECTING"
-                    : "HOST"}
+                    ? "CHURCH HOST · RECONNECTING"
+                    : "OFFLINE CHURCH"}
             </span>
           </div>
         </header>
@@ -1357,6 +1357,10 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
                   if (body.leaderPin && bootstrap) setBootstrap({ ...bootstrap, leaderPin: body.leaderPin });
                 });
             }}
+            setlistSongCount={setlist.songs.length}
+            setlistSaved={!unsaved}
+            padKeysReady={pads.readyKeys.size}
+            audioStarted={audioStarted}
           />
 
         <section className="panel-card" aria-label="Trigger policy">

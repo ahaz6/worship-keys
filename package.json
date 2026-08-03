@@ -12,6 +12,7 @@
     "start": "NODE_ENV=production node server.mjs",
     "pads:prepare": "node scripts/prepare-sound-walls.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
+    "church:install": "npm run build && node scripts/install-church-mode-app.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

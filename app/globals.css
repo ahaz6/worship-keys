@@ -1170,6 +1170,59 @@ textarea:focus {
   text-decoration: none;
 }
 
+.church-readiness {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #55472d;
+  border-radius: 13px;
+  background: linear-gradient(140deg, #211c12, var(--wk-panel));
+}
+
+.church-readiness.is-ready {
+  border-color: #35675f;
+  background: linear-gradient(140deg, #10221f, var(--wk-panel));
+  box-shadow: inset 0 0 24px #4ebaaa0d;
+}
+
+.church-readiness-head,
+.church-check-grid {
+  display: grid;
+  gap: 7px;
+}
+
+.church-readiness-head strong {
+  color: var(--wk-warning);
+  font-size: 10px;
+  letter-spacing: .09em;
+}
+
+.church-readiness.is-ready .church-readiness-head strong {
+  color: #7bc8bb;
+}
+
+.church-check-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.church-check-grid span {
+  color: var(--wk-text-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.church-check-grid span.is-ready {
+  color: var(--wk-text-soft);
+}
+
+.church-check-grid b {
+  color: var(--wk-text-faint);
+}
+
+.church-check-grid .is-ready b {
+  color: #70b8ad;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -17,6 +17,7 @@ import next from "next";
 import QRCode from "qrcode";
 
 import { isLoopbackAddress } from "./lib/session/authorization.ts";
+import { selectPreferredLanAddress, sortLanAddresses } from "./lib/session/lan-addresses.ts";
 import { SessionStore } from "./lib/session/session-store.ts";
 import { createSessionServer } from "./lib/session/websocket-server.ts";
 
@@ -42,7 +43,7 @@ function lanAddresses() {
       if (entry.family === "IPv4" && !entry.internal) found.push({ interface: name, address: entry.address });
     }
   }
-  return found;
+  return sortLanAddresses(found);
 }
 
 function json(response, status, body, extraHeaders = {}) {
@@ -99,7 +100,7 @@ async function handleSessionRoute(request, response, url) {
       return true;
     }
     const addresses = lanAddresses();
-    const preferred = addresses[0]?.address ?? "localhost";
+    const preferred = selectPreferredLanAddress(addresses, process.env.WK_LAN_IP) ?? "localhost";
     const authority = `${preferred}:${port}`;
     const localJoinUrl = `http://${authority}/join?t=${store.viewerToken}`;
     const cloudJoinUrl = `${publicAppOrigin}/join?host=${encodeURIComponent(authority)}&t=${store.viewerToken}`;
