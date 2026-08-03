@@ -1,10 +1,13 @@
-import { createSign } from "node:crypto";
+import { createSign, timingSafeEqual } from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 import type { PersistedState } from "@/lib/storage/schema";
 import { toExportJson } from "@/lib/storage/setlist-repository";
 
 export const DRIVE_CURRENT_FILE = "Worship Keys Current.worship-keys.json";
 export const DEFAULT_DRIVE_FOLDER_ID = "1pD8L0WbTM-i_HdhGT13vM3kbNDVWVcpB";
+export const DRIVE_READ_KEYCHAIN_SERVICE = "com.worship-keys.drive-read";
+export const DRIVE_READ_KEYCHAIN_ACCOUNT = "worship-keys-host";
 
 export type DriveFile = {
   id: string;
@@ -21,6 +24,30 @@ type ServiceAccountConfig = {
 };
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
+
+/** Reads the narrowly scoped host key from Vercel or the macOS Keychain. */
+export function readDriveReadToken(): string | null {
+  const environmentToken = process.env.WORSHIP_KEYS_DRIVE_READ_TOKEN?.trim();
+  if (environmentToken) return environmentToken;
+  if (process.platform !== "darwin") return null;
+  try {
+    return execFileSync(
+      "/usr/bin/security",
+      ["find-generic-password", "-a", DRIVE_READ_KEYCHAIN_ACCOUNT, "-s", DRIVE_READ_KEYCHAIN_SERVICE, "-w"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    ).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+export function hasValidDriveReadToken(candidate: string | null): boolean {
+  const expected = process.env.WORSHIP_KEYS_DRIVE_READ_TOKEN?.trim();
+  if (!candidate || !expected) return false;
+  const candidateBytes = Buffer.from(candidate);
+  const expectedBytes = Buffer.from(expected);
+  return candidateBytes.length === expectedBytes.length && timingSafeEqual(candidateBytes, expectedBytes);
+}
 
 function base64Url(value: string): string {
   return Buffer.from(value).toString("base64url");

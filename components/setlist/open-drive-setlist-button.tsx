@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { ensureSupabaseSession } from "@/lib/supabase/client";
 import { migratePersistedState, type PersistedState } from "@/lib/storage/schema";
 
 /** Imports the one fixed church setlist from Drive without showing a file picker. */
@@ -18,14 +18,10 @@ export function OpenDriveSetlistButton({
   const open = async () => {
     setBusy(true);
     try {
-      const supabase = getSupabaseClient();
-      const { data } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
-      if (!data.session) {
-        throw new Error("Sign in to the Worship Keys cloud planner once, then try again.");
-      }
+      const session = await ensureSupabaseSession();
 
       const response = await fetch("/api/open-setlist-from-drive", {
-        headers: { Authorization: `Bearer ${data.session.access_token}` },
+        headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
         cache: "no-store",
       });
       const result = (await response.json()) as { error?: string; state?: unknown; file?: { name?: string } };
@@ -48,4 +44,3 @@ export function OpenDriveSetlistButton({
     </button>
   );
 }
-
