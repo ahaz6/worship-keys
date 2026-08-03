@@ -1119,6 +1119,57 @@ textarea:focus {
   margin-top: 20px;
 }
 
+.drive-dialog-body,
+.drive-auth-form,
+.drive-connected-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.drive-auth-form {
+  margin-top: 4px;
+}
+
+.drive-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--wk-line);
+  border-radius: 12px;
+  background: var(--wk-panel);
+}
+
+.drive-account-row > span {
+  display: grid;
+  gap: 3px;
+}
+
+.drive-account-row small,
+.drive-action-card p {
+  color: var(--wk-text-muted);
+}
+
+.drive-action-card {
+  display: grid;
+  gap: 10px;
+  padding: 17px;
+  border: 1px solid var(--wk-line);
+  border-radius: 14px;
+  background: linear-gradient(140deg, var(--wk-panel-raised), var(--wk-panel));
+}
+
+.drive-action-card h3,
+.drive-action-card p {
+  margin: 0;
+}
+
+.drive-folder-link {
+  justify-content: center;
+  text-decoration: none;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

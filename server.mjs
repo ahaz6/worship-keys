@@ -169,6 +169,7 @@ async function handleSessionRoute(request, response, url) {
 }
 
 await app.prepare();
+const handleNextUpgrade = app.getUpgradeHandler();
 
 const server = createServer((request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
@@ -194,7 +195,7 @@ server.on("upgrade", (request, socket, head) => {
   }
   // Everything else (Next's HMR socket in development) stays with Next.
   if (dev) {
-    handle(request, socket, head);
+    void handleNextUpgrade(request, socket, head);
     return;
   }
   socket.destroy();

@@ -12,6 +12,16 @@ test("public cloud performance mode loads pads without a LAN session", async ({ 
   await expect(page.getByText(/Supabase Realtime · Vercel/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Cloud planner" })).toHaveCount(0);
 
+  await page.getByRole("button", { name: "Google Drive", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Google Drive setlist" })).toBeVisible();
+  await expect(page.getByText("Sign in with the authorized Worship Keys account.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect Google Drive", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create account", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+
+  const unauthorizedDeploy = await page.request.post("/api/deploy-setlist", { data: {} });
+  expect(unauthorizedDeploy.status()).toBe(401);
+
   const manifest = await page.request.get("/manifest.webmanifest");
   expect(manifest.ok()).toBe(true);
   await expect(manifest.json()).resolves.toMatchObject({ name: "Worship Keys", display: "standalone" });

@@ -219,6 +219,9 @@ Exercised in a production build in a real browser, not only in unit tests:
   required audio gesture and advertises an installable standalone web manifest.
 - `/play` is the single preparation and performance route. `/cloud` redirects
   there, including on the local server for verification.
+- `/play` contains the protected Google Drive handoff dialog. The authorized
+  account can deploy the current browser setlist from a phone and import the
+  same fixed JSON file on the church Mac; there is still no setlist database.
 - `Show join code` on the Vercel host creates a Cloud Live QR link. A clean
   second Chrome profile was verified joining as Viewer, receiving the complete
   snapshot, upgrading with the six-digit PIN and changing songs through the

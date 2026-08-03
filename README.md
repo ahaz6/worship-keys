@@ -23,6 +23,8 @@ It is part of the Worship suite and shares its art direction with Worship Loops.
   crossfade — or use `Switch now`. Sustained notes from the old key cannot fire it.
 - **Setlists** are prepared directly in `/play` and automatically saved in the
   current browser through IndexedDB. A manual `Save setlist` action is included.
+- **Phone-to-Mac Drive handoff** lives inside `/play`: an authorized account
+  deploys the one current JSON file from a phone and opens it on the church Mac.
 - **Voice commands** as progressive enhancement (`Prepare G`, `Crescendo`, …).
 - **Cloud Live session**: the Vercel host creates a QR link and musician devices
   receive Nashville, setlist, keyboard and leader controls through Supabase
