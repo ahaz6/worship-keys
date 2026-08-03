@@ -17,7 +17,6 @@ import { KeyRibbon } from "@/components/performance/key-ribbon";
 import { NowCard } from "@/components/performance/now-card";
 import { TransportDock } from "@/components/performance/transport-dock";
 import { HostPanel, type HostBootstrap } from "@/components/session/host-panel";
-import { LanConnectButton } from "@/components/session/lan-connect-button";
 import { OpenDriveSetlistButton } from "@/components/setlist/open-drive-setlist-button";
 import { SetlistRail } from "@/components/setlist/setlist-rail";
 import { SongDialog } from "@/components/setlist/song-dialog";
@@ -28,6 +27,7 @@ import { useMidi } from "@/lib/hooks/use-midi";
 import { usePadEngine } from "@/lib/hooks/use-pad-engine";
 import { useSession } from "@/lib/hooks/use-session";
 import { useVoice } from "@/lib/hooks/use-voice";
+import { createCloudSessionBootstrap } from "@/lib/session/cloud-session";
 import {
   type AudioDeviceInfo,
   chooseOutputDevice,
@@ -635,7 +635,28 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!lanSessionEnabled) return;
+    if (!lanSessionEnabled) {
+      const cloud = createCloudSessionBootstrap();
+      const origin = window.location.origin;
+      const cloudJoinUrl = `${origin}/join?cloud=1&t=${encodeURIComponent(cloud.viewerToken)}`;
+      const timer = window.setTimeout(() => {
+        setBootstrap({
+          ...cloud,
+          hostToken: "browser-host",
+          joinUrl: cloudJoinUrl,
+          localJoinUrl: cloudJoinUrl,
+          cloudJoinUrl,
+          addresses: [],
+          port: 443,
+          transport: "cloud",
+        });
+        session.startCloudHost(cloud, setlist.name);
+      }, 0);
+      return () => {
+        window.clearTimeout(timer);
+        session.disconnect();
+      };
+    }
     fetch("/api/session/bootstrap")
       .then(async (response) => {
         const body = await response.json();
@@ -646,10 +667,13 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
       .catch((error: unknown) =>
         setBootstrapError(error instanceof Error ? error.message : "The live session could not be started."),
       );
+    // The cloud room intentionally lives for this browser tab. Setlist changes
+    // are published as snapshots and must not recreate its QR code.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lanSessionEnabled]);
 
   useEffect(() => {
-    if (!bootstrap) return;
+    if (!bootstrap || bootstrap.transport === "cloud") return;
     session.connect(bootstrap.hostToken, "Host MacBook");
     return () => session.disconnect();
     // Connecting once per bootstrap is intended; session identity does not change.
@@ -1013,7 +1037,6 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
               />
             ) : (
               <>
-                <LanConnectButton />
                 <a className="btn tone-quiet" href="/cloud">
                   Cloud planner
                 </a>
@@ -1050,7 +1073,7 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
             ) : null}
             <span className="role-chip tone-live">
               {runtime === "cloud"
-                ? "CLOUD · PLAY"
+                ? session.status === "connected" ? "CLOUD HOST · LIVE" : "CLOUD HOST"
                 : session.status === "connected"
                   ? "HOST · LIVE"
                   : session.status === "reconnecting"
@@ -1170,15 +1193,11 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
               state="Voice"
               detail={voice.listening ? "Listening" : voice.supported ? "Off" : "Not supported"}
             />
-            {lanSessionEnabled ? (
-              <Status
-                tone={session.status === "connected" ? "ok" : session.status === "idle" ? "idle" : "warn"}
-                state="Session"
-                detail={`${session.devices.filter((device) => device.role !== "host").length} device(s)`}
-              />
-            ) : (
-              <Status tone="ok" state="Cloud" detail="Audio on this device" />
-            )}
+            <Status
+              tone={session.status === "connected" ? "ok" : session.status === "idle" ? "idle" : "warn"}
+              state={lanSessionEnabled ? "Session" : "Cloud session"}
+              detail={`${session.devices.filter((device) => device.role !== "host").length} device(s)`}
+            />
           </div>
         </div>
       </main>
@@ -1288,8 +1307,7 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
           error={voice.error}
         />
 
-        {lanSessionEnabled ? (
-          <HostPanel
+        <HostPanel
             bootstrap={bootstrap}
             bootstrapError={bootstrapError}
             connected={session.status === "connected"}
@@ -1306,6 +1324,11 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
             onRevokeDevice={(deviceId) => session.sendHostCommand({ type: "revoke-device", deviceId })}
             onShowJoin={() => void startAudio()}
             onRotatePin={() => {
+              if (bootstrap?.transport === "cloud") {
+                const leaderPin = session.rotateCloudPin();
+                if (leaderPin) setBootstrap({ ...bootstrap, leaderPin });
+                return;
+              }
               void fetch("/api/session/pin", { method: "POST" })
                 .then((response) => response.json())
                 .then((body: { leaderPin?: string }) => {
@@ -1313,24 +1336,6 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
                 });
             }}
           />
-        ) : (
-          <section className="panel-card cloud-performance-note" aria-label="Cloud performance mode">
-            <div className="section-title" style={{ padding: 0 }}>
-              <span>Cloud performance</span>
-              <span>HTTPS</span>
-            </div>
-            <Status tone="ok" state="Ready" detail="Audio stays on this device" />
-            <p className="hint">
-              Connect MIDI and enable audio in this browser. Setlists and pad settings are stored locally on this device.
-            </p>
-            <a className="btn" href="/cloud">
-              Open cloud planner
-            </a>
-            <p className="hint">
-              Need the QR leader session? Run Worship Keys locally on the church Mac; Vercel does not host the LAN socket.
-            </p>
-          </section>
-        )}
 
         <section className="panel-card" aria-label="Trigger policy">
           <div className="section-title" style={{ padding: 0 }}>

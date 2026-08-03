@@ -16,6 +16,7 @@ export type HostBootstrap = {
   cloudJoinUrl: string;
   addresses: { interface: string; address: string }[];
   port: number;
+  transport?: "local" | "cloud";
 };
 
 /**
@@ -112,7 +113,7 @@ export function HostPanel({
         <Status
           tone={connected ? "ok" : "warn"}
           state={connected ? "Host online" : "Host offline"}
-          detail={bootstrap ? `${bootstrap.addresses[0]?.address ?? "localhost"}:${bootstrap.port}` : "starting"}
+          detail={bootstrap?.transport === "cloud" ? "Supabase Realtime · Vercel" : bootstrap ? `${bootstrap.addresses[0]?.address ?? "localhost"}:${bootstrap.port}` : "starting"}
         />
       )}
 
@@ -214,9 +215,9 @@ export function HostPanel({
             </button>
           </div>
           <p className="hint" style={{ marginTop: 12 }}>
-            The Vercel Join UI asks for local-network permission and then connects directly to this Mac. If that is blocked,
-            open <a href={bootstrap.localJoinUrl}>{bootstrap.localJoinUrl}</a>. Guest-network client isolation still prevents
-            devices from reaching each other.
+            {bootstrap.transport === "cloud"
+              ? "The Vercel host tab owns MIDI and pad audio. Join devices receive the live Nashville, setlist and controls through Supabase Realtime; no local server is required."
+              : <>The Vercel Join UI connects directly to this Mac. If that is blocked, open <a href={bootstrap.localJoinUrl}>{bootstrap.localJoinUrl}</a>.</>}
           </p>
         </Modal>
       ) : null}

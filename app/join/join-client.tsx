@@ -34,9 +34,12 @@ export function JoinClient() {
   const qrFallbackAttempted = useRef(false);
 
   const qrToken = params.get("t");
+  const cloudSession = params.get("cloud") === "1";
   const hostParam = params.get("host");
   const lanEndpoint = useMemo(() => parseLanEndpoint(hostParam), [hostParam]);
-  const tokenStorageKey = `${DEVICE_TOKEN_KEY}:${lanEndpoint?.authority ?? "same-origin"}`;
+  const tokenStorageKey = cloudSession
+    ? `${DEVICE_TOKEN_KEY}:cloud:${qrToken ?? "missing"}`
+    : `${DEVICE_TOKEN_KEY}:${lanEndpoint?.authority ?? "same-origin"}`;
   const localFallbackUrl = lanEndpoint && qrToken ? localJoinUrl(lanEndpoint, qrToken) : null;
   // A command is in flight until the host's acknowledgement for it comes back.
   const pendingCommand = sentCommandId != null && session.lastAck?.messageId !== sentCommandId;
@@ -60,10 +63,11 @@ export function JoinClient() {
     const storedToken = window.localStorage.getItem(tokenStorageKey);
     const token = storedToken ?? qrToken;
     if (!token) return;
-    session.connect(token, deviceName, lanEndpoint?.websocketUrl);
+    if (cloudSession && qrToken) session.connectCloud(qrToken, deviceName, storedToken);
+    else session.connect(token, deviceName, lanEndpoint?.websocketUrl);
     return () => session.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lanEndpoint?.websocketUrl, nameSubmitted, qrToken, tokenStorageKey]);
+  }, [cloudSession, lanEndpoint?.websocketUrl, nameSubmitted, qrToken, tokenStorageKey]);
 
   useEffect(() => {
     if (!session.deviceToken) return;
@@ -87,11 +91,26 @@ export function JoinClient() {
     }
     if (!qrToken || !nameSubmitted || qrFallbackAttempted.current) return;
     qrFallbackAttempted.current = true;
-    session.connect(qrToken, deviceName, lanEndpoint?.websocketUrl);
-  }, [deviceName, lanEndpoint?.websocketUrl, nameSubmitted, qrToken, session, session.message, session.status, tokenStorageKey]);
+    if (cloudSession) session.connectCloud(qrToken, deviceName, null);
+    else session.connect(qrToken, deviceName, lanEndpoint?.websocketUrl);
+  }, [cloudSession, deviceName, lanEndpoint?.websocketUrl, nameSubmitted, qrToken, session, session.message, session.status, tokenStorageKey]);
+
+  useEffect(() => {
+    if (session.role !== "leader") return;
+    const reset = window.setTimeout(() => {
+      setPinOpen(false);
+      setPin("");
+      setPinMessage(null);
+    }, 0);
+    return () => window.clearTimeout(reset);
+  }, [session.role]);
 
   const submitPin = useCallback(async () => {
     setPinMessage(null);
+    if (cloudSession) {
+      session.requestLeader(pin);
+      return;
+    }
     const token = window.localStorage.getItem(tokenStorageKey);
     if (!token) {
       setPinMessage("This device has not joined yet.");
@@ -120,7 +139,7 @@ export function JoinClient() {
       return;
     }
     setPinMessage(body.reason ?? body.error ?? "That did not work.");
-  }, [deviceName, lanEndpoint, pin, session, tokenStorageKey]);
+  }, [cloudSession, deviceName, lanEndpoint, pin, session, tokenStorageKey]);
 
   const sendCommand = useCallback(
     (command: LeaderCommand) => {
@@ -129,7 +148,7 @@ export function JoinClient() {
     [session],
   );
 
-  if (hostParam && !lanEndpoint) {
+  if (!cloudSession && hostParam && !lanEndpoint) {
     return (
       <div className="centered-page">
         <div className="card">
@@ -179,6 +198,8 @@ export function JoinClient() {
           ) : null}
           {lanEndpoint ? (
             <p className="hint">Connecting securely through the Vercel UI to {lanEndpoint.authority}. Allow local-network access when your browser asks.</p>
+          ) : cloudSession ? (
+            <p className="hint">Connecting to the Vercel host through Worship Keys Cloud Live.</p>
           ) : null}
         </div>
       </div>
@@ -255,7 +276,7 @@ export function JoinClient() {
             className="mono"
             style={{ fontSize: 22, letterSpacing: "0.2em", textAlign: "center" }}
           />
-          {pinMessage ? <div className="callout tone-warn" style={{ marginTop: 12 }}>{pinMessage}</div> : null}
+          {pinMessage || session.message ? <div className="callout tone-warn" style={{ marginTop: 12 }}>{pinMessage ?? session.message}</div> : null}
         </Modal>
       ) : null}
     </>

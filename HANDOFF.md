@@ -25,13 +25,19 @@ desktop/tablet review and the central Playwright host flows.
 | 9 | Hardening | Partial — see §7 |
 | 10 | GitHub publication | Done — see §9 |
 | 11 | Public Vercel performance app, cloud planner, Drive deploy/import | Done — see §4 and §6 |
+| 12 | Serverless Cloud Live host + QR Join UI through Supabase Realtime | Done — see §3 and §4 |
 
 ## 2. Architecture
 
 ### Process model
 
-`server.mjs` owns the socket. Next.js cannot take the HTTP upgrade itself, and
-the live session needs one, so a single Node process:
+There are two live transports behind the same React session hook. Cloud Live is
+the Vercel default: the host browser is the authority and Supabase Realtime
+Broadcast carries compact snapshots and commands. Audio, MIDI and transitions
+remain in that host tab, so no local process is required.
+
+For the optional offline/LAN fallback, `server.mjs` owns the socket. Next.js
+cannot take the HTTP upgrade itself, so a single Node process:
 
 - serves the app through the Next request handler,
 - answers `/api/session/*` itself,
@@ -120,12 +126,12 @@ rather than a leader screen that lies.
 hidden buttons. The host bootstrap secret is served to loopback callers only.
 The leader PIN is stored as a salted hash for the session's lifetime.
 
-**Cloud audio and the LAN session are separate modes of the same app.** Vercel
-serves a public, account-free performance screen at `/` and `/play`; Web Audio,
-Web MIDI, Sound Wall pads and IndexedDB all run on that musician's device. The
-authenticated planner remains at `/cloud`. The church Mac still runs
-`server.mjs` locally when a shared QR/leader session is needed, because Vercel
-does not host that long-lived in-memory WebSocket session.
+**Cloud Live is browser-owned, not a Vercel WebSocket server.** Vercel serves
+the public host at `/` and `/play`. The host tab creates a random high-entropy
+room, displays a `/join?cloud=1&t=…` QR link, publishes its snapshot through
+Supabase Realtime and executes acknowledged Leader commands. Web Audio and MIDI
+never leave that tab. The planner stays at `/cloud`; `server.mjs` is now only an
+optional offline/LAN fallback.
 
 **Prepared pad loops belong in the Vercel artifact.** `.vercelignore` excludes
 the owner-supplied source recordings but deliberately includes `public/pads/`.
@@ -160,7 +166,9 @@ state messages also do not inject schema defaults. This prevents valid leader
 commands from becoming stale and prevents a held Crescendo or spatial XY value
 from being reset by another fader packet.
 
-**The Vercel Join UI can target a private LAN host explicitly.** The local host
+**The Vercel Join UI supports Cloud Live and the older LAN fallback.** Cloud
+links subscribe to the host's opaque Supabase room without private-IP browser
+permission. The optional local host
 places its private IP and viewer token into the public `/join?host=…&t=…` URL.
 That static page opens `ws://<private-ip>/session` directly after the browser's
 Local Network Access permission and never relays live notes through Vercel.
@@ -211,10 +219,11 @@ Exercised in a production build in a real browser, not only in unit tests:
   required audio gesture and advertises an installable standalone web manifest.
 - `/cloud` remains the authenticated Supabase planner. `/play` is the stable
   explicit performance route, including on the local server for verification.
-- `IP Connect` on the public performance page accepts the private host IP and
-  Join key. The local `Show join code` QR opens the Vercel Join UI with both
-  already embedded; viewers receive Nashville, chords, key, keyboard layer and
-  transcript from the Mac. Leader upgrade still requires the six-digit PIN.
+- `Show join code` on the Vercel host creates a Cloud Live QR link. A clean
+  second Chrome profile was verified joining as Viewer, receiving the complete
+  snapshot, upgrading with the six-digit PIN and changing songs through the
+  same equal-power host crossfade. No `npm start` or LAN IP was involved.
+- The previous local `host=…` Join URL remains supported as a fallback.
 - The local direct Join URL remains visible in the QR dialog as a fallback for
   Safari or managed browsers that deny cross-network WebSockets.
 
@@ -244,9 +253,10 @@ Five real bugs were found this way and fixed:
 setlist workflows plus the live host → viewer → leader session in Chrome.
 
 The current verification baseline is **159 passing Vitest tests across 10 test
-files**, plus typecheck, ESLint, the cloud-performance and live-session
-Playwright tests and a successful Next production build. Dynamic routes include
-`/api/deploy-setlist` and `/api/open-setlist-from-drive`.
+files**, plus typecheck, ESLint, all **6 Playwright browser flows** (including a
+real two-profile Supabase Cloud Live session) and a successful Next production
+build. Dynamic routes include `/api/deploy-setlist`,
+`/api/open-setlist-from-drive` and `/api/session/qr`.
 
 - `tests/nashville.test.ts` — every mandatory case from spec 12.4, all 12 roots
   × major/minor, all 12 keys × diatonic degrees in both modes, borrowed chords,
@@ -285,11 +295,12 @@ Playwright tests and a successful Next production build. Dynamic routes include
 - **Imported pads are browser-local.** Audio and preset metadata persist in
   IndexedDB but never sync to another browser or upload to the host.
 - **Opening the Drive setlist requires internet access.** Once imported, the
-  local setlist, pads, MIDI and LAN join session continue to run on the church
-  Mac; the live session is not routed through Vercel.
-- **Vercel performance is single-device.** Pad audio, MIDI, setlists and local
-  settings run in that browser. The Vercel Join UI can monitor/control a local
-  `server.mjs` session, but the audio still runs only on the church Mac.
+  local setlist, pads and MIDI keep working. Cloud Live also needs Supabase;
+  the optional `server.mjs` LAN mode does not.
+- **Cloud Live needs internet access to Supabase.** Pad audio keeps running in
+  the host tab during an interruption, but Join screens become stale until
+  Realtime reconnects. Use the optional LAN host when offline operation is a
+  hard requirement.
 - **Vercel-to-LAN requires browser permission.** Current Chromium prompts for
   Local Network Access when the public Join UI opens the private WebSocket.
   Other browsers or managed policies may block it. The generated local HTTP
@@ -314,15 +325,12 @@ Playwright tests and a successful Next production build. Dynamic routes include
   The production build hydrates correctly and all browser verification above was
   done against `npm start`. Worth a look on a normal machine before assuming it
   is a project problem.
-- **`npm audit` reports two transitive advisories** (`postcss`, `sharp`) that
-  come from Next and whose only offered "fix" is downgrading Next to v9. Left
-  as-is deliberately; revisit when Next ships updated transitive deps.
+- **`npm audit` reports zero known vulnerabilities** at this handoff.
 
 ## 7. Not done yet
 
 - Drag-and-drop setlist reordering (buttons and keyboard move songs today).
-- Broader Playwright coverage for the complete host → leader → viewer flow and
-  real Web Audio/MIDI devices.
+- Hardware-in-the-loop coverage for real MIDI and audio devices.
 - The optional 32×32 CoreAudio bridge (spec 17.8) — the browser stereo path is
   the shipped mode and the UI explains the limit.
 - Separate major/minor pad audio. The shipped packs are root/fifth/octave drones
@@ -341,14 +349,15 @@ Spec section 27 lists these; the safe defaults are what shipped:
 6. Output routing works where the browser supports it, with a documented fallback.
 7. The PIN is enough for the first leader; a second device always needs host
    confirmation.
-8. LAN only. No relay.
+8. Cloud Live through Supabase is the Vercel default; LAN remains the optional
+   offline fallback.
 
 ## 9. Repository
 
 - Repository: <https://github.com/ahaz6/worship-keys> (private)
 - Branch: `main`
-- Feature baseline before this handoff update: `9bd8666`
-  (`Update handoff for cloud Drive workflow`).
+- Feature baseline before this Cloud Live update: `525c782`
+  (`Connect Vercel Join UI to LAN hosts`).
 - Relevant Drive/cloud commits:
   - `e98f92c` — secure Google Drive setlist deployment
   - `1fd78fc` — one-click Drive setlist import

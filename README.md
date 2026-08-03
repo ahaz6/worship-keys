@@ -23,8 +23,11 @@ It is part of the Worship suite and shares its art direction with Worship Loops.
   crossfade — or use `Switch now`. Sustained notes from the old key cannot fire it.
 - **Setlists** with key, mode, time signature and pad preset, saved locally.
 - **Voice commands** as progressive enhancement (`Prepare G`, `Crescendo`, …).
-- **Local live session**: musician iPads join over the LAN by QR code and see a
-  large read-only monitor; a confirmed pianist iPad gets leader controls.
+- **Cloud Live session**: the Vercel host creates a QR link and musician devices
+  receive Nashville, setlist, keyboard and leader controls through Supabase
+  Realtime. Pad audio remains in the host browser; no local server is required.
+- **Optional local session**: `npm start` retains the offline-friendly LAN
+  WebSocket mode as a fallback.
 
 ## Requirements
 
@@ -40,7 +43,10 @@ npm run build
 npm start
 ```
 
-The host prints its LAN address and the leader PIN:
+For the standalone app, open the Vercel `/play` page, choose **Show join code**
+and scan the QR code. Keep that host tab open during the service.
+
+For the optional local fallback, the host prints its LAN address and PIN:
 
 ```
   Worship Keys — host ready

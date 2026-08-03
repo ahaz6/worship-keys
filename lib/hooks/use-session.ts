@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { SessionConnection } from "@/lib/session/client";
+import { CloudSessionConnection, type CloudBootstrap } from "@/lib/session/cloud-session";
 import {
   type ConnectedDevice,
   type HostCommand,
@@ -33,23 +34,23 @@ export function useSession() {
   const [updatedAt, setUpdatedAt] = useState(() => Date.now());
   const [age, setAge] = useState(0);
   const rejectedRef = useRef(false);
+  const activeTransportRef = useRef<"socket" | "cloud">("socket");
 
   const runCommandRef = useRef<((messageId: string, command: LeaderCommand) => void) | null>(null);
-  // The ref is read only later from the WebSocket event callback, never while
-  // React is rendering this initializer.
+  // These refs are only read later by transport callbacks, never by the state
+  // initializer while React is rendering it.
   // eslint-disable-next-line react-hooks/refs
-  const [connection] = useState(() => {
-    // The closure needs the instance itself so a rejected token can stop the
-    // reconnect loop from inside the message handler.
-    const created: SessionConnection = new SessionConnection({
-      onStatus: (next) => {
+  const [transports] = useState(() => {
+    const holder: { socket?: SessionConnection; cloud?: CloudSessionConnection } = {};
+    const events = {
+      onStatus: (next: "connecting" | "connected" | "reconnecting" | "closed") => {
         // giveUp() closes a revoked connection intentionally. Do not let that
         // final close event erase the rejected state before the join screen can
         // clear its persisted device identity.
         if (next === "closed" && rejectedRef.current) return;
         setStatus(next === "closed" ? "idle" : next);
       },
-      onMessage: (parsed) => {
+      onMessage: (parsed: import("@/lib/session/protocol").ServerMessage) => {
           switch (parsed.type) {
             case "welcome":
               rejectedRef.current = false;
@@ -80,7 +81,9 @@ export function useSession() {
               break;
             case "role-changed":
               setRole(parsed.role);
-              setMessage(parsed.reason);
+              // Successful promotion is reflected by the LEADER · LIVE chip;
+              // it does not need the old full-width notification banner.
+              setMessage(parsed.role === "leader" ? null : parsed.reason);
               break;
             case "heartbeat":
               setUpdatedAt(Date.now());
@@ -90,55 +93,89 @@ export function useSession() {
               // A rejected token must not turn into an endless reconnect loop.
               if (/no longer valid|removed|locked/.test(parsed.message)) {
                 rejectedRef.current = true;
-                created.giveUp();
+                if (activeTransportRef.current === "cloud") holder.cloud?.giveUp();
+                else holder.socket?.giveUp();
                 setStatus("rejected");
               }
               break;
           }
       },
-    });
-    return created;
+    };
+    const socket = new SessionConnection(events);
+    const cloud = new CloudSessionConnection(events);
+    holder.socket = socket;
+    holder.cloud = cloud;
+    return { socket, cloud };
   });
 
   // The socket needs the newest revision to stamp outgoing commands with.
   useEffect(() => {
-    if (snapshot) connection.setRevision(snapshot.revision);
-  }, [connection, snapshot]);
+    if (!snapshot) return;
+    transports.socket.setRevision(snapshot.revision);
+    transports.cloud.setRevision(snapshot.revision);
+  }, [snapshot, transports]);
 
   useEffect(() => {
     const timer = setInterval(() => setAge(Date.now() - updatedAt), 500);
     return () => clearInterval(timer);
   }, [updatedAt]);
 
-  useEffect(() => () => connection.disconnect(), [connection]);
+  useEffect(() => () => {
+    transports.socket.disconnect();
+    transports.cloud.disconnect();
+  }, [transports]);
 
   const connect = useCallback(
     (token: string, deviceName: string, websocketUrl?: string) => {
       rejectedRef.current = false;
-      connection.connect(token, deviceName, websocketUrl);
+      activeTransportRef.current = "socket";
+      transports.cloud.disconnect();
+      transports.socket.connect(token, deviceName, websocketUrl);
     },
-    [connection],
+    [transports],
   );
-  const disconnect = useCallback(() => connection.disconnect(), [connection]);
+  const connectCloud = useCallback((token: string, deviceName: string, storedDeviceToken?: string | null) => {
+    rejectedRef.current = false;
+    activeTransportRef.current = "cloud";
+    transports.socket.disconnect();
+    transports.cloud.connect(token, deviceName, storedDeviceToken);
+  }, [transports]);
+  const startCloudHost = useCallback((bootstrap: CloudBootstrap, sessionName?: string) => {
+    rejectedRef.current = false;
+    activeTransportRef.current = "cloud";
+    transports.socket.disconnect();
+    transports.cloud.startHost(bootstrap, sessionName);
+  }, [transports]);
+  const disconnect = useCallback(() => {
+    transports.socket.disconnect();
+    transports.cloud.disconnect();
+  }, [transports]);
+
+  const activeTransport = useCallback(
+    () => activeTransportRef.current === "cloud" ? transports.cloud : transports.socket,
+    [transports],
+  );
 
   const sendCommand = useCallback(
     (command: LeaderCommand): string | null => {
-      const messageId = connection.sendCommand(command);
+      const messageId = activeTransport().sendCommand(command);
       if (!messageId) setMessage("Not connected. Command not applied.");
       return messageId;
     },
-    [connection],
+    [activeTransport],
   );
 
-  const sendHostCommand = useCallback((command: HostCommand) => connection.sendHostCommand(command), [connection]);
+  const sendHostCommand = useCallback((command: HostCommand) => activeTransport().sendHostCommand(command), [activeTransport]);
   const sendHostState = useCallback(
-    (patch: Partial<LiveSessionSnapshot>) => connection.sendHostState(patch),
-    [connection],
+    (patch: Partial<LiveSessionSnapshot>) => activeTransport().sendHostState(patch),
+    [activeTransport],
   );
   const acknowledge = useCallback(
-    (messageId: string, applied: boolean, reason?: string) => connection.acknowledge(messageId, applied, reason),
-    [connection],
+    (messageId: string, applied: boolean, reason?: string) => activeTransport().acknowledge(messageId, applied, reason),
+    [activeTransport],
   );
+  const requestLeader = useCallback((pin: string) => transports.cloud.requestLeader(pin), [transports]);
+  const rotateCloudPin = useCallback(() => transports.cloud.rotatePin(), [transports]);
   const onRunCommand = useCallback((handler: ((messageId: string, command: LeaderCommand) => void) | null) => {
     runCommandRef.current = handler;
   }, []);
@@ -156,11 +193,15 @@ export function useSession() {
     lastAck,
     message,
     connect,
+    connectCloud,
+    startCloudHost,
     disconnect,
     sendCommand,
     sendHostCommand,
     sendHostState,
     acknowledge,
+    requestLeader,
+    rotateCloudPin,
     onRunCommand,
     dismissMessage,
   };
