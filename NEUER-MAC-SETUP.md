@@ -212,4 +212,3 @@ Langfristig wäre eine signierte und notarisierte `.dmg`-Datei über GitHub
 Releases noch einfacher. Der ZIP-plus-Doppelklick-Weg ist für den aktuellen
 Projektaufbau die einfachste sichere Variante, weil die Church-App weiterhin
 auf die Pad-Dateien und den Build im Projektordner zugreift.
-
