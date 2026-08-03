@@ -191,6 +191,19 @@ non-empty saved setlist and all 12 decoded pad keys. Once ready, host and Join
 pages make no external browser requests. Internet, Vercel, Supabase and Google
 Drive are therefore outside the live-service path.
 
+**Fresh-computer installation is bootstrapped on macOS and Windows.** The root
+`Worship Keys installieren.command` can be distributed as a standalone file. It
+installs the latest official Node.js LTS package with macOS authorization,
+downloads a temporary architecture-matched GitHub CLI, authenticates through
+GitHub's browser flow and expands private `main` into
+`~/Documents/Worship Keys` before running `church:install`. The paired Windows
+files `Worship Keys Windows installieren.cmd` and `.ps1` use WinGet for
+Node.js LTS and GitHub CLI, download the same private archive, build it and
+create scoped Start/Stop shortcuts on the desktop and in the Start menu. No
+repository token is embedded. Standalone updates timestamp-backup an existing
+project directory before replacement; running either installer from a complete
+repository deliberately installs that checked-out copy instead.
+
 The church Mac may connect by Ethernet. Phones and tablets still need a Wi-Fi
 access point bridged into that router if the router itself has no wireless
 radio. No internet uplink is required. See `OFFLINE-CHURCH.md` for the complete

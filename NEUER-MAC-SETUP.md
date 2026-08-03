@@ -1,214 +1,234 @@
-# Worship Keys auf einem neuen MacBook einrichten
+# Worship Keys auf einem neuen Mac oder Windows-PC installieren
 
-Diese Anleitung richtet sich ausdrücklich an Nutzer ohne Git-, Terminal- oder
-Programmierkenntnisse. Git wird nicht benötigt. Die eigentliche Einrichtung
-erfolgt per Doppelklick.
+Diese Anleitung ist für Menschen ohne Git-, Terminal- oder
+Programmierkenntnisse geschrieben. Der Installationsassistent lädt Node.js LTS,
+meldet dich sicher bei GitHub an, lädt die aktuelle `main`-Version von Worship
+Keys und richtet Start sowie Stopp ein.
 
-## Das brauchst du
+## Was du brauchst
 
 - Internet während der einmaligen Installation,
-- das Administratorpasswort des neuen Macs,
-- einen GitHub-Account mit Zugriff auf das private Repository `ahaz6/worship-keys`,
-- ungefähr 10 GB freien Speicher als sichere Reserve,
-- macOS 13 oder neuer.
+- ein Administratorkonto auf dem Computer,
+- einen GitHub-Account mit Zugriff auf das private Repository
+  `ahaz6/worship-keys`,
+- ungefähr 10 GB freien Speicher,
+- Google Chrome,
+- macOS 13 oder neuer beziehungsweise ein aktuelles Windows 10/11.
 
-Nach der Einrichtung funktioniert der Offline-Church-Modus ohne Internet.
+Nach der Einrichtung kann der Offline-Church-Modus ohne Internet verwendet
+werden.
 
-## Übersicht
+## Warum GitHub einmal nach einer Anmeldung fragt
 
-Du erledigst nur diese fünf Dinge:
+Worship Keys liegt in einem privaten Repository. Deshalb enthält kein Installer
+ein fest eingebautes Passwort oder Zugriffstoken. Beim ersten Lauf öffnet der
+offizielle GitHub-Anmeldeablauf den Browser. Nach erfolgreicher Anmeldung darf
+der Assistent ausschließlich mit den Rechten deines GitHub-Kontos laden.
 
-1. Chrome installieren.
-2. Node.js LTS installieren.
-3. Worship Keys als ZIP von GitHub herunterladen.
-4. Den Ordner nach `Dokumente` verschieben.
-5. **Worship Keys installieren.command** doppelklicken.
-
-## Schritt 1 – Google Chrome installieren
-
-1. Öffne [google.com/chrome](https://www.google.com/chrome/).
-2. Wähle **Chrome herunterladen**.
-3. Öffne `googlechrome.dmg` aus dem Downloads-Ordner.
-4. Ziehe Google Chrome auf den Ordner **Programme**.
-5. Öffne Chrome einmal.
-
-Chrome ist wichtig, weil Web MIDI dort zuverlässig unterstützt wird. Google
-beschreibt den macOS-Ablauf ebenfalls in der
-[offiziellen Chrome-Anleitung](https://support.google.com/chrome/answer/95346?co=GENIE.Platform%3DDesktop&hl=de).
-
-## Schritt 2 – Node.js installieren
-
-Node.js ist der unsichtbare Motor, der Worship Keys lokal auf dem Mac startet.
-
-1. Öffne die [offizielle Node.js-Downloadseite](https://nodejs.org/en/download).
-2. Wähle die Version mit der Bezeichnung **LTS** – nicht **Current**.
-3. Lade den macOS-Installer (`.pkg`) herunter.
-4. Öffne die heruntergeladene `.pkg`-Datei.
-5. Klicke durch den Installer und gib bei Bedarf das Mac-Passwort ein.
-6. Nach Abschluss alle Installationsfenster schließen.
-
-Worship Keys benötigt Node.js 22.13 oder neuer. Die jeweils aktuelle LTS-Version
-ist die empfohlene Wahl.
-
-## Schritt 3 – Bei GitHub anmelden
-
-1. Öffne [github.com](https://github.com/) in Chrome.
-2. Klicke oben rechts auf **Sign in**.
-3. Melde dich mit dem GitHub-Account an, der Zugriff auf Worship Keys besitzt.
-4. Öffne das private Repository:
-   [github.com/ahaz6/worship-keys](https://github.com/ahaz6/worship-keys).
-
-Wenn GitHub `404` oder „Page not found“ zeigt, ist entweder der falsche Account
-angemeldet oder dieser Account wurde noch nicht für das private Repository
+Zeigt GitHub `404` oder „Page not found“, ist entweder der falsche Account
+angemeldet oder der Account wurde noch nicht für `ahaz6/worship-keys`
 freigeschaltet.
 
-## Schritt 4 – Worship Keys ohne Git herunterladen
+---
 
-1. Auf der Repository-Seite den grünen Button **Code** anklicken.
-2. Im geöffneten Menü **Download ZIP** wählen.
-3. Warten, bis der Download vollständig abgeschlossen ist.
-4. Im Finder den Ordner **Downloads** öffnen.
-5. Falls macOS die ZIP nicht automatisch entpackt hat, die ZIP doppelklicken.
-6. Der entpackte Ordner heißt gewöhnlich `worship-keys-main`.
-7. Den Ordner in `Worship Keys` umbenennen.
-8. Den Ordner nach **Dokumente** verschieben.
+## Installation auf einem MacBook
 
-Der feste Zielpfad sollte anschließend so aussehen:
+### 1. Die Installerdatei auf den Mac bringen
+
+Du benötigst nur diese Datei:
 
 ```text
-Macintosh HD → Benutzer → dein Name → Dokumente → Worship Keys
+Worship Keys installieren.command
 ```
 
-Den Ordner nach der Installation nicht mehr verschieben oder löschen. Die
-macOS-App merkt sich diesen Ort, um den lokalen Server und die Pad-Dateien zu
-finden.
+Sie kann dir zum Beispiel per AirDrop, USB-Stick oder als separates
+Installationspaket gegeben werden. Lege sie in **Downloads**. Wenn du bereits
+den vollständigen GitHub-ZIP-Ordner besitzt, kannst du dieselbe Datei direkt in
+diesem Ordner starten; der Assistent erkennt beide Varianten.
 
-GitHub bestätigt in seiner
-[offiziellen Download-Anleitung](https://docs.github.com/de/repositories/working-with-files/using-files/downloading-files-from-github),
-dass ein Repository direkt als ZIP geladen werden kann. Git oder GitHub Desktop
-sind dafür nicht nötig.
+### 2. Den Installer öffnen
 
-## Schritt 5 – Den Ein-Klick-Installer starten
+1. Finder öffnen und **Downloads** wählen.
+2. Mit der rechten Maustaste auf **Worship Keys installieren.command** klicken.
+3. **Öffnen** wählen.
+4. Falls macOS erneut warnt, nochmals **Öffnen** wählen.
+5. Bei Bedarf das Administratorpasswort des Macs eingeben.
+6. Wenn GitHub den Browser öffnet, mit dem freigeschalteten GitHub-Konto
+   anmelden und den Zugriff bestätigen.
+7. Warten, bis **INSTALLATION ERFOLGREICH** erscheint.
 
-1. Im Finder **Dokumente → Worship Keys** öffnen.
-2. Die Datei **Worship Keys installieren.command** suchen.
-3. Die Datei doppelklicken.
-4. Falls macOS das Öffnen blockiert:
-   - mit der rechten Maustaste auf die Datei klicken,
-   - **Öffnen** wählen,
-   - im nächsten Fenster erneut **Öffnen** wählen.
-5. Es öffnet sich einmal ein Terminalfenster. Du musst dort nichts eingeben.
-6. Warten, bis **INSTALLATION ERFOLGREICH** erscheint.
-7. Falls macOS nach einem Administratorpasswort fragt, das Mac-Passwort
-   eingeben.
+Der Assistent erledigt selbstständig:
 
-Der Assistent erledigt automatisch:
-
-- Prüfung der Node.js-Version,
-- Installation aller benötigten Bestandteile,
+- Ermittlung und Installation der aktuellen offiziellen Node.js-LTS-Version,
+- temporäre Einrichtung des offiziellen GitHub-Anmeldeprogramms,
+- Download der aktuellen `main`-Version des privaten Repositorys,
+- Erstellung von `Dokumente/Worship Keys`,
+- Sicherung einer alten Installation als `Worship Keys Backup …`,
+- Installation aller JavaScript-Bestandteile,
 - Erstellung des Produktions-Builds,
-- Einrichtung des lokalen macOS-Hintergrunddienstes,
 - Installation von **Worship Keys Church** unter `/Programme`,
 - Installation von **Stop Worship Keys** unter `/Programme`.
 
-## Schritt 6 – Worship Keys zum ersten Mal öffnen
+### 3. Worship Keys öffnen
 
 1. Finder öffnen.
 2. Links **Programme** wählen.
 3. **Worship Keys Church** doppelklicken.
-4. Falls macOS nach eingehenden Netzwerkverbindungen fragt: **Erlauben**.
-5. Chrome öffnet automatisch `http://localhost:3000`.
+4. Bei der macOS-Frage zu eingehenden Netzwerkverbindungen **Erlauben**
+   wählen.
+5. Chrome öffnet `http://localhost:3000`.
 6. **Enable audio** beziehungsweise **Check all offline pads** wählen.
 7. Warten, bis alle zwölf Pads bereit sind.
 
-Zum späteren Beenden im Programme-Ordner **Stop Worship Keys** doppelklicken.
-Das Schließen des Chrome-Tabs allein beendet den lokalen Server nicht.
+Zum Beenden **Stop Worship Keys** im Programme-Ordner öffnen. Das bloße
+Schließen des Browser-Tabs beendet den lokalen Server nicht.
 
-## Schritt 7 – Vor dem ersten Sonntag die Setlist übertragen
+---
 
-Solange der Mac Internet hat:
+## Installation auf einem Windows-PC
+
+### 1. Die beiden Installerdateien auf den PC bringen
+
+Unter Windows gehören diese beiden Dateien immer zusammen in denselben Ordner:
+
+```text
+Worship Keys Windows installieren.cmd
+Worship Keys Windows installieren.ps1
+```
+
+Lege beide Dateien beispielsweise in **Downloads**. Sie können dir als
+gemeinsame ZIP-Datei, über einen USB-Stick oder über einen privaten Download
+gegeben werden. Nach dem Entpacken dürfen die Dateien nicht voneinander getrennt
+werden.
+
+### 2. Den Windows-Installer öffnen
+
+1. **Worship Keys Windows installieren.cmd** doppelklicken.
+2. Wenn Windows SmartScreen warnt: **Weitere Informationen** und anschließend
+   **Trotzdem ausführen** wählen.
+3. Eine eventuelle Administratorabfrage bestätigen.
+4. Wenn GitHub den Browser öffnet, mit dem freigeschalteten Account anmelden.
+5. Warten, bis **INSTALLATION ERFOLGREICH** erscheint.
+
+Der Windows-Assistent verwendet den offiziellen Windows-Paketmanager `winget`
+und erledigt automatisch:
+
+- Installation der aktuellen Node.js-LTS-Version,
+- Installation des offiziellen GitHub-Anmeldeprogramms,
+- sicheren Download der aktuellen privaten `main`-Version,
+- Erstellung von `Dokumente\Worship Keys`,
+- Sicherung einer alten Installation als `Worship Keys Backup …`,
+- Installation und Produktions-Build,
+- Verknüpfung **Worship Keys Church** auf Desktop und im Startmenü,
+- Verknüpfung **Stop Worship Keys** auf Desktop und im Startmenü.
+
+Fehlt `winget`, installiere im Microsoft Store einmal die Microsoft-App
+**App Installer** und starte danach den Worship-Keys-Installer erneut.
+
+### 3. Worship Keys unter Windows öffnen
+
+1. Auf dem Desktop **Worship Keys Church** doppelklicken.
+2. Eine eventuelle Windows-Firewall-Frage für das private Netzwerk erlauben.
+3. Chrome öffnet `http://localhost:3000`.
+4. Audio, MIDI und Offline-Pads freigeben beziehungsweise prüfen.
+5. Zum vollständigen Beenden **Stop Worship Keys** doppelklicken.
+
+## Google Chrome installieren
+
+Chrome sollte auf beiden Plattformen installiert sein, weil Worship Keys die
+Web-MIDI-Schnittstelle nutzt:
+
+1. [google.com/chrome](https://www.google.com/chrome/) öffnen.
+2. **Chrome herunterladen** wählen.
+3. Den normalen Chrome-Installer ausführen.
+4. Chrome anschließend einmal öffnen.
+
+## Setlist vor dem Gottesdienst übertragen
+
+Solange Internet verfügbar ist:
 
 1. [worship-keys-psi.vercel.app/play](https://worship-keys-psi.vercel.app/play)
    öffnen.
 2. **Google Drive** beziehungsweise **Open setlist from Drive** wählen.
-3. Mit dem für Worship Keys freigeschalteten Account anmelden.
+3. Mit dem für Worship Keys freigeschalteten Konto anmelden.
 4. Die aktuelle Setlist öffnen.
 5. Songanzahl und Reihenfolge prüfen.
 6. Auf **Saved on this device** achten.
 
-Danach liegt die Setlist lokal im Chrome-Profil und kann in der Gemeinde ohne
-Internet verwendet werden.
+Danach liegt die Setlist lokal im jeweiligen Chrome-Profil und steht im
+Offline-Church-Modus ohne Internet zur Verfügung.
 
-## Schritt 8 – Test vor dem Umzug in die Gemeinde
+## Vor dem ersten Sonntag testen
 
-Noch zu Hause einmal vollständig prüfen:
-
-1. **Worship Keys Church** starten.
-2. MIDI-Keyboard anschließen und in Chrome freigeben.
-3. Audioausgang auswählen beziehungsweise in macOS einstellen.
+1. Worship Keys Church starten.
+2. MIDI-Keyboard verbinden und in Chrome freigeben.
+3. Audioausgang auswählen.
 4. **Check all offline pads** drücken.
 5. Auf **READY · INTERNET NOT REQUIRED** warten.
 6. **Show local join QR** öffnen.
-7. QR mit einem Handy im selben WLAN testen.
-8. Anschließend **Stop Worship Keys** öffnen.
+7. QR mit einem zweiten Gerät im selben Netzwerk testen.
+8. Worship Keys über die jeweilige Stop-App beenden.
 9. Prüfen, dass `http://localhost:3000` nicht mehr erreichbar ist.
 
-## Worship Keys später aktualisieren – ebenfalls ohne Git
+## Später aktualisieren
 
-1. **Stop Worship Keys** öffnen.
-2. Den bisherigen Ordner `Dokumente/Worship Keys` vorübergehend in
-   `Worship Keys alt` umbenennen.
-3. Die aktuelle Version erneut über **Code → Download ZIP** laden.
-4. Entpackten Ordner wieder in `Worship Keys` umbenennen.
-5. Den neuen Ordner nach **Dokumente** verschieben.
-6. Darin **Worship Keys installieren.command** doppelklicken.
-7. Start und Pads testen.
-8. Erst danach den Ordner `Worship Keys alt` löschen.
+1. Worship Keys mit **Stop Worship Keys** beenden.
+2. Den passenden Installationsassistenten erneut starten.
+3. Bei GitHub nur dann erneut anmelden, wenn die gespeicherte Anmeldung nicht
+   mehr gültig ist.
+4. Der Assistent sichert den bisherigen Projektordner automatisch und lädt
+   `main` neu.
+5. Worship Keys starten und Pads, MIDI sowie Join-QR kurz prüfen.
+6. Erst nach erfolgreichem Test kann der datierte Backup-Ordner gelöscht
+   werden.
 
-Die lokal im Browser gespeicherte Setlist wird durch diesen Ordnertausch nicht
-gelöscht. Trotzdem sollte die aktuelle Setlist vorher nach Google Drive
-übertragen worden sein.
+Wenn der Installer aus dem bereits vollständigen Projektordner gestartet wird,
+installiert er genau diesen Stand. Für ein garantiertes Update auf die neueste
+`main`-Version sollte die einzelne macOS-Datei beziehungsweise das
+Windows-Installerpaar verwendet werden.
 
 ## Häufige Probleme
 
-### „Node.js fehlt“
+### GitHub zeigt 404 oder verweigert den Download
 
-Der Assistent öffnet automatisch die offizielle Node.js-Seite. Dort LTS für
-macOS installieren und danach **Worship Keys installieren.command** erneut
-doppelklicken.
+Mit dem richtigen GitHub-Account anmelden und prüfen, ob der Account Zugriff
+auf `ahaz6/worship-keys` besitzt. Im Installer selbst wird absichtlich kein
+geheimes Zugriffstoken gespeichert.
 
-### „Die App kann nicht geöffnet werden“
+### macOS blockiert die `.command`-Datei
 
-Mit Rechtsklick auf die Datei oder App gehen und **Öffnen** wählen. Wenn nötig
-unter **Systemeinstellungen → Datenschutz & Sicherheit** das Öffnen bestätigen.
+Nicht normal doppelklicken, sondern **Rechtsklick → Öffnen → Öffnen**. Wenn
+nötig unter **Systemeinstellungen → Datenschutz & Sicherheit** bestätigen.
 
-### GitHub zeigt 404
+### Windows findet `winget` nicht
 
-Mit dem richtigen GitHub-Account anmelden und prüfen, ob dieser Zugriff auf das
-private Repository erhalten hat.
+Im Microsoft Store **App Installer** von Microsoft installieren, Windows einmal
+neu starten und den Installer erneut öffnen.
 
-### Die Church-App startet nach einem Update nicht
+### Die App startet nach dem Verschieben des Ordners nicht
 
-Der Ordner wurde wahrscheinlich verschoben oder umbenannt. Er muss wieder unter
-`Dokumente/Worship Keys` liegen. Anschließend den Ein-Klick-Installer erneut
-ausführen.
+Der Projektordner muss unter `Dokumente/Worship Keys` bleiben. Den passenden
+Installer erneut ausführen, um die Startverknüpfungen auf den korrekten Pfad zu
+setzen.
 
-### Andere Geräte erreichen den QR-Code nicht
+### Andere Geräte erreichen den Join-QR nicht
 
-- Alle Geräte müssen im selben Router-/Access-Point-Netz sein.
-- Gast-WLAN und Client-Isolation müssen deaktiviert sein.
-- Eingehende Verbindungen für Node müssen in macOS erlaubt sein.
-- Der QR muss eine private Adresse wie `192.168.x.x:3000` enthalten.
+- Alle Geräte müssen mit demselben Router oder Access Point verbunden sein.
+- Gastnetz und Client-Isolation müssen deaktiviert sein.
+- Eingehende Verbindungen für Node.js müssen im privaten Netzwerk erlaubt sein.
+- Der QR muss eine private Adresse wie `192.168.x.x:3000`, `10.x.x.x:3000` oder
+  `172.16–31.x.x:3000` enthalten.
 
-## Was du nicht brauchst
+## Sicherheit und technische Grenzen
 
-- keine Git-Befehle,
-- kein GitHub Desktop,
-- keine Programmierkenntnisse,
-- kein Terminalwissen,
-- während des Gottesdienstes kein Internet.
+- Die GitHub-Anmeldung erfolgt über das offizielle GitHub-CLI-Browserverfahren.
+- Kein GitHub-Passwort und kein Token ist im Installer hinterlegt.
+- Vorhandene Projektordner werden datiert gesichert und nicht still gelöscht.
+- Die macOS-Apps sind lokal ad-hoc-signiert, aber noch nicht Apple-notarisiert.
+- Die Windows-Skripte sind noch nicht mit einem kommerziellen Code-Signing-
+  Zertifikat signiert. Deshalb kann SmartScreen beim ersten Öffnen warnen.
 
-Langfristig wäre eine signierte und notarisierte `.dmg`-Datei über GitHub
-Releases noch einfacher. Der ZIP-plus-Doppelklick-Weg ist für den aktuellen
-Projektaufbau die einfachste sichere Variante, weil die Church-App weiterhin
-auf die Pad-Dateien und den Build im Projektordner zugreift.
+Eine später signierte und notarisierte macOS-DMG sowie ein signierter
+Windows-MSIX/MSI wären für eine öffentliche Verteilung noch komfortabler. Für
+das private Team ist der aktuelle Assistent bereits ohne Git- oder
+Terminalkenntnisse nutzbar.

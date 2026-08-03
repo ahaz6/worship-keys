@@ -1,5 +1,11 @@
 # Worship Keys
 
+## Installation auf einem neuen Computer
+
+Die vollständige, anfängerfreundliche Anleitung für macOS und Windows steht in
+[NEUER-MAC-SETUP.md](./NEUER-MAC-SETUP.md). Die Installer richten Node.js LTS,
+den privaten GitHub-Download sowie lokale Start-/Stop-Werkzeuge automatisch ein.
+
 **Play the room, see the harmony, prepare the next moment.**
 
 A calm live instrument for worship keyboard players. Worship Keys runs latching
@@ -108,6 +114,6 @@ is included.
 - `HANDOFF.md` — architecture, decisions, known limits and next steps
 - `ARC42.md` — vollständige arc42-Architekturdokumentation des Gesamtsystems
 - `OFFLINE-CHURCH.md` — deutsche Einrichtung und Sonntags-Checkliste ohne Internet
-- `NEUER-MAC-SETUP.md` — anfängerfreundliche Installation auf einem neuen Mac ohne Git
+- `NEUER-MAC-SETUP.md` — anfängerfreundliche Installation auf macOS und Windows ohne Git-Befehle
 - `Worship-Keys.md` — the product specification this was built from
 - `Design-Art.md` — the shared Worship suite art direction
