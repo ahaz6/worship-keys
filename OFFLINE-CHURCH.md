@@ -5,6 +5,9 @@ Join-Geräte vollständig auf dem Kirchen-Mac und im lokalen Gemeindenetz. Währ
 des Gottesdienstes werden weder Internet noch Vercel, Supabase oder Google Drive
 benötigt.
 
+Für die erstmalige Einrichtung auf einem neuen Mac ohne Git- oder
+Terminalkenntnisse siehe [NEUER-MAC-SETUP.md](NEUER-MAC-SETUP.md).
+
 ## 1. Benötigte Geräte
 
 - ein Mac mit Chrome und der installierten App **Worship Keys Church**,

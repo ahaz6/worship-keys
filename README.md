@@ -108,5 +108,6 @@ is included.
 - `HANDOFF.md` — architecture, decisions, known limits and next steps
 - `ARC42.md` — vollständige arc42-Architekturdokumentation des Gesamtsystems
 - `OFFLINE-CHURCH.md` — deutsche Einrichtung und Sonntags-Checkliste ohne Internet
+- `NEUER-MAC-SETUP.md` — anfängerfreundliche Installation auf einem neuen Mac ohne Git
 - `Worship-Keys.md` — the product specification this was built from
 - `Design-Art.md` — the shared Worship suite art direction
