@@ -1,18 +1,11 @@
 "use client";
 
-import { useRef } from "react";
+import { useState } from "react";
 
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { migratePersistedState, type PersistedState } from "@/lib/storage/schema";
 
-type OpenFileHandle = { getFile(): Promise<File> };
-
-async function readSetlistFile(file: File): Promise<PersistedState> {
-  const migrated = migratePersistedState(JSON.parse(await file.text()));
-  if (!migrated.ok) throw new Error(migrated.message);
-  return migrated.state;
-}
-
-/** Opens the native macOS picker, which exposes a mounted Google Drive folder. */
+/** Imports the one fixed church setlist from Drive without showing a file picker. */
 export function OpenDriveSetlistButton({
   onImport,
   onNotice,
@@ -20,61 +13,39 @@ export function OpenDriveSetlistButton({
   onImport: (state: PersistedState) => void;
   onNotice: (message: string) => void;
 }) {
-  const fallbackInput = useRef<HTMLInputElement>(null);
-
-  const importFile = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      onImport(await readSetlistFile(file));
-      onNotice(`Loaded ${file.name} from Google Drive.`);
-    } catch (error) {
-      onNotice(error instanceof Error ? error.message : "That file is not a valid Worship Keys setlist.");
-    } finally {
-      if (fallbackInput.current) fallbackInput.current.value = "";
-    }
-  };
+  const [busy, setBusy] = useState(false);
 
   const open = async () => {
-    const picker = (window as unknown as {
-      showOpenFilePicker?: (options: {
-        id: string;
-        multiple: false;
-        types: Array<{ description: string; accept: Record<string, string[]> }>;
-      }) => Promise<OpenFileHandle[]>;
-    }).showOpenFilePicker;
-
-    if (!picker) {
-      fallbackInput.current?.click();
-      return;
-    }
-
+    setBusy(true);
     try {
-      const [handle] = await picker({
-        id: "worship-keys-drive-setlist",
-        multiple: false,
-        types: [{ description: "Worship Keys setlist", accept: { "application/json": [".json"] } }],
-      });
-      if (handle) await importFile(await handle.getFile());
-    } catch (error) {
-      if ((error as { name?: string }).name !== "AbortError") {
-        onNotice(error instanceof Error ? error.message : "The Drive setlist could not be opened.");
+      const supabase = getSupabaseClient();
+      const { data } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
+      if (!data.session) {
+        throw new Error("Sign in to the Worship Keys cloud planner once, then try again.");
       }
+
+      const response = await fetch("/api/open-setlist-from-drive", {
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+        cache: "no-store",
+      });
+      const result = (await response.json()) as { error?: string; state?: unknown; file?: { name?: string } };
+      if (!response.ok) throw new Error(result.error || "The Drive setlist could not be opened.");
+      const migrated = migratePersistedState(result.state);
+      if (!migrated.ok) throw new Error(migrated.message);
+
+      onImport(migrated.state);
+      onNotice(`${result.file?.name ?? "Drive setlist"} imported successfully.`);
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "The Drive setlist could not be opened.");
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <>
-      <button type="button" className="btn drive-open-button" onClick={() => void open()}>
-        Open Drive setlist
-      </button>
-      <input
-        ref={fallbackInput}
-        type="file"
-        accept="application/json,.json"
-        hidden
-        onChange={(event) => void importFile(event.target.files?.[0])}
-      />
-    </>
+    <button type="button" className="btn drive-open-button" disabled={busy} onClick={() => void open()}>
+      {busy ? "Opening Drive setlist…" : "Open setlist from Drive"}
+    </button>
   );
 }
 

@@ -2,35 +2,20 @@ import { NextResponse } from "next/server";
 
 import { deploySetlistToDrive, readDriveServiceAccountConfig } from "@/lib/google-drive/service-account";
 import { migratePersistedState } from "@/lib/storage/schema";
+import { authenticatedUserId, canAccessDriveSetlist } from "@/lib/supabase/server-auth";
 
 export const runtime = "nodejs";
 
-async function authenticatedUserId(authorization: string): Promise<string | null> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://mmoizwtjnpfmowoqpmfa.supabase.co";
-  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "sb_publishable_oiTCgL6_m7RvLKVrwOdp7A_Ojp1zjSa";
-  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: { Authorization: authorization, apikey: publishableKey },
-    cache: "no-store",
-  });
-  if (!response.ok) return null;
-  const user = await response.json() as { id?: string };
-  return user.id ?? null;
-}
-
 export async function POST(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
-  const userId = authorization.startsWith("Bearer ") ? await authenticatedUserId(authorization) : null;
+  const userId = await authenticatedUserId(authorization);
   if (!userId) {
     return NextResponse.json({ error: "Sign in again before deploying." }, { status: 401 });
   }
-  const deployUsers = (process.env.GOOGLE_DRIVE_DEPLOY_USER_IDS ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  if (deployUsers.length === 0) {
+  if (!(process.env.GOOGLE_DRIVE_DEPLOY_USER_IDS ?? "").trim()) {
     return NextResponse.json({ error: "Google Drive deploy has no authorized users yet." }, { status: 503 });
   }
-  if (!deployUsers.includes(userId)) {
+  if (!canAccessDriveSetlist(userId)) {
     return NextResponse.json({ error: "This account is not allowed to deploy the church setlist." }, { status: 403 });
   }
   if (!readDriveServiceAccountConfig()) {

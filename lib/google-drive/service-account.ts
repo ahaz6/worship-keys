@@ -6,7 +6,7 @@ import { toExportJson } from "@/lib/storage/setlist-repository";
 export const DRIVE_CURRENT_FILE = "Worship Keys Current.worship-keys.json";
 export const DEFAULT_DRIVE_FOLDER_ID = "1pD8L0WbTM-i_HdhGT13vM3kbNDVWVcpB";
 
-type DriveFile = {
+export type DriveFile = {
   id: string;
   name: string;
   webViewLink?: string;
@@ -83,6 +83,41 @@ async function driveRequest<T>(token: string, url: string, init?: RequestInit): 
   return result;
 }
 
+async function findCurrentDriveFile(token: string, config: ServiceAccountConfig): Promise<DriveFile | null> {
+  if (config.fileId) {
+    const fields = encodeURIComponent("id,name,webViewLink,modifiedTime");
+    return driveRequest<DriveFile>(
+      token,
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(config.fileId)}?supportsAllDrives=true&fields=${fields}`,
+    );
+  }
+
+  const escapedName = DRIVE_CURRENT_FILE.replaceAll("'", "\\'");
+  const query = `'${config.folderId}' in parents and name = '${escapedName}' and trashed = false`;
+  const listUrl = new URL("https://www.googleapis.com/drive/v3/files");
+  listUrl.searchParams.set("q", query);
+  listUrl.searchParams.set("fields", "files(id,name,webViewLink,modifiedTime)");
+  listUrl.searchParams.set("spaces", "drive");
+  listUrl.searchParams.set("supportsAllDrives", "true");
+  listUrl.searchParams.set("includeItemsFromAllDrives", "true");
+  const listed = await driveRequest<{ files?: DriveFile[] }>(token, listUrl.toString());
+  return listed.files?.[0] ?? null;
+}
+
+/** Downloads the single current church setlist shared with the service account. */
+export async function downloadSetlistFromDrive(): Promise<{ file: DriveFile; content: unknown }> {
+  const config = readDriveServiceAccountConfig();
+  if (!config) throw new Error("Google Drive access is not configured on Vercel yet.");
+  const token = await getAccessToken(config);
+  const file = await findCurrentDriveFile(token, config);
+  if (!file) throw new Error(`${DRIVE_CURRENT_FILE} was not found in Google Drive.`);
+  const content = await driveRequest<unknown>(
+    token,
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}?alt=media&supportsAllDrives=true`,
+  );
+  return { file, content };
+}
+
 export async function deploySetlistToDrive(state: PersistedState): Promise<DriveFile> {
   const config = readDriveServiceAccountConfig();
   if (!config) throw new Error("Google Drive deploy is not configured on Vercel yet.");
@@ -98,16 +133,7 @@ export async function deploySetlistToDrive(state: PersistedState): Promise<Drive
     );
   }
 
-  const query = `'${config.folderId}' in parents and name = '${DRIVE_CURRENT_FILE}' and trashed = false`;
-  const listUrl = new URL("https://www.googleapis.com/drive/v3/files");
-  listUrl.searchParams.set("q", query);
-  listUrl.searchParams.set("fields", "files(id,name,webViewLink,modifiedTime)");
-  listUrl.searchParams.set("spaces", "drive");
-  listUrl.searchParams.set("supportsAllDrives", "true");
-  listUrl.searchParams.set("includeItemsFromAllDrives", "true");
-
-  const listed = await driveRequest<{ files?: DriveFile[] }>(token, listUrl.toString());
-  const existing = listed.files?.[0];
+  const existing = await findCurrentDriveFile(token, config);
   if (existing) {
     return driveRequest<DriveFile>(
       token,
