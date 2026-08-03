@@ -83,7 +83,10 @@ const DEFAULT_PREFERENCES: Preferences = {
   liveMode: false,
 };
 
-export function WorshipKeysApp() {
+export type WorshipKeysRuntime = "local" | "cloud";
+
+export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRuntime }) {
+  const lanSessionEnabled = runtime === "local";
   /* ------------------------------------------------------------- app state */
 
   const [setlist, setSetlist] = useState(() => createStarterSetlist());
@@ -631,6 +634,7 @@ export function WorshipKeysApp() {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!lanSessionEnabled) return;
     fetch("/api/session/bootstrap")
       .then(async (response) => {
         const body = await response.json();
@@ -641,7 +645,7 @@ export function WorshipKeysApp() {
       .catch((error: unknown) =>
         setBootstrapError(error instanceof Error ? error.message : "The live session could not be started."),
       );
-  }, []);
+  }, [lanSessionEnabled]);
 
   useEffect(() => {
     if (!bootstrap) return;
@@ -975,6 +979,11 @@ export function WorshipKeysApp() {
           >
             Spelling: {preferences.notation}
           </button>
+          {runtime === "cloud" ? (
+            <a className="btn tone-quiet" href="/cloud">
+              Cloud planner
+            </a>
+          ) : null}
         </div>
       </aside>
 
@@ -993,13 +1002,19 @@ export function WorshipKeysApp() {
             </div>
           </div>
           <div className="btn-row">
-            <OpenDriveSetlistButton
-              onImport={(state) => {
-                setSetlist(state.setlist);
-                setPreferences(state.preferences);
-              }}
-              onNotice={setStorageNotice}
-            />
+            {runtime === "local" ? (
+              <OpenDriveSetlistButton
+                onImport={(state) => {
+                  setSetlist(state.setlist);
+                  setPreferences(state.preferences);
+                }}
+                onNotice={setStorageNotice}
+              />
+            ) : (
+              <a className="btn tone-quiet" href="/cloud">
+                Cloud planner
+              </a>
+            )}
             <button
               type="button"
               className="btn tone-quiet"
@@ -1030,7 +1045,13 @@ export function WorshipKeysApp() {
               </button>
             ) : null}
             <span className="role-chip tone-live">
-              {session.status === "connected" ? "HOST · LIVE" : session.status === "reconnecting" ? "HOST · RECONNECTING" : "HOST"}
+              {runtime === "cloud"
+                ? "CLOUD · PLAY"
+                : session.status === "connected"
+                  ? "HOST · LIVE"
+                  : session.status === "reconnecting"
+                    ? "HOST · RECONNECTING"
+                    : "HOST"}
             </span>
           </div>
         </header>
@@ -1145,11 +1166,15 @@ export function WorshipKeysApp() {
               state="Voice"
               detail={voice.listening ? "Listening" : voice.supported ? "Off" : "Not supported"}
             />
-            <Status
-              tone={session.status === "connected" ? "ok" : session.status === "idle" ? "idle" : "warn"}
-              state="Session"
-              detail={`${session.devices.filter((device) => device.role !== "host").length} device(s)`}
-            />
+            {lanSessionEnabled ? (
+              <Status
+                tone={session.status === "connected" ? "ok" : session.status === "idle" ? "idle" : "warn"}
+                state="Session"
+                detail={`${session.devices.filter((device) => device.role !== "host").length} device(s)`}
+              />
+            ) : (
+              <Status tone="ok" state="Cloud" detail="Audio on this device" />
+            )}
           </div>
         </div>
       </main>
@@ -1259,30 +1284,49 @@ export function WorshipKeysApp() {
           error={voice.error}
         />
 
-        <HostPanel
-          bootstrap={bootstrap}
-          bootstrapError={bootstrapError}
-          connected={session.status === "connected"}
-          devices={session.devices}
-          remoteLocked={session.snapshot?.remoteControlLocked ?? false}
-          joinsLocked={session.snapshot?.joinsLocked ?? false}
-          onToggleRemoteLock={() =>
-            session.sendHostCommand({ type: "set-remote-lock", locked: !(session.snapshot?.remoteControlLocked ?? false) })
-          }
-          onToggleJoinsLock={() =>
-            session.sendHostCommand({ type: "lock-new-joins", locked: !(session.snapshot?.joinsLocked ?? false) })
-          }
-          onApproveLeader={(deviceId, approved) => session.sendHostCommand({ type: "set-leader", deviceId, approved })}
-          onRevokeDevice={(deviceId) => session.sendHostCommand({ type: "revoke-device", deviceId })}
-          onShowJoin={() => void startAudio()}
-          onRotatePin={() => {
-            void fetch("/api/session/pin", { method: "POST" })
-              .then((response) => response.json())
-              .then((body: { leaderPin?: string }) => {
-                if (body.leaderPin && bootstrap) setBootstrap({ ...bootstrap, leaderPin: body.leaderPin });
-              });
-          }}
-        />
+        {lanSessionEnabled ? (
+          <HostPanel
+            bootstrap={bootstrap}
+            bootstrapError={bootstrapError}
+            connected={session.status === "connected"}
+            devices={session.devices}
+            remoteLocked={session.snapshot?.remoteControlLocked ?? false}
+            joinsLocked={session.snapshot?.joinsLocked ?? false}
+            onToggleRemoteLock={() =>
+              session.sendHostCommand({ type: "set-remote-lock", locked: !(session.snapshot?.remoteControlLocked ?? false) })
+            }
+            onToggleJoinsLock={() =>
+              session.sendHostCommand({ type: "lock-new-joins", locked: !(session.snapshot?.joinsLocked ?? false) })
+            }
+            onApproveLeader={(deviceId, approved) => session.sendHostCommand({ type: "set-leader", deviceId, approved })}
+            onRevokeDevice={(deviceId) => session.sendHostCommand({ type: "revoke-device", deviceId })}
+            onShowJoin={() => void startAudio()}
+            onRotatePin={() => {
+              void fetch("/api/session/pin", { method: "POST" })
+                .then((response) => response.json())
+                .then((body: { leaderPin?: string }) => {
+                  if (body.leaderPin && bootstrap) setBootstrap({ ...bootstrap, leaderPin: body.leaderPin });
+                });
+            }}
+          />
+        ) : (
+          <section className="panel-card cloud-performance-note" aria-label="Cloud performance mode">
+            <div className="section-title" style={{ padding: 0 }}>
+              <span>Cloud performance</span>
+              <span>HTTPS</span>
+            </div>
+            <Status tone="ok" state="Ready" detail="Audio stays on this device" />
+            <p className="hint">
+              Connect MIDI and enable audio in this browser. Setlists and pad settings are stored locally on this device.
+            </p>
+            <a className="btn" href="/cloud">
+              Open cloud planner
+            </a>
+            <p className="hint">
+              Need the QR leader session? Run Worship Keys locally on the church Mac; Vercel does not host the LAN socket.
+            </p>
+          </section>
+        )}
 
         <section className="panel-card" aria-label="Trigger policy">
           <div className="section-title" style={{ padding: 0 }}>

@@ -24,7 +24,7 @@ desktop/tablet review and the central Playwright host flows.
 | 8 | Local live session: host, leader, viewer over WebSocket | Done |
 | 9 | Hardening | Partial — see §7 |
 | 10 | GitHub publication | Done — see §9 |
-| 11 | Cloud planner, Supabase persistence, Drive deploy/import, Vercel | Done — see §4 and §6 |
+| 11 | Public Vercel performance app, cloud planner, Drive deploy/import | Done — see §4 and §6 |
 
 ## 2. Architecture
 
@@ -120,11 +120,12 @@ rather than a leader screen that lies.
 hidden buttons. The host bootstrap secret is served to loopback callers only.
 The leader PIN is stored as a salted hash for the session's lifetime.
 
-**Cloud planning and live audio are deliberately separate.** The Vercel app is
-the authenticated setlist planner. Supabase owns each user's working setlist.
-The church Mac runs `server.mjs` locally, owns Web Audio/MIDI and exposes only
-the current LAN join session. Vercel never hosts the pad engine or the church
-WebSocket session.
+**Cloud audio and the LAN session are separate modes of the same app.** Vercel
+serves a public, account-free performance screen at `/` and `/play`; Web Audio,
+Web MIDI, Sound Wall pads and IndexedDB all run on that musician's device. The
+authenticated planner remains at `/cloud`. The church Mac still runs
+`server.mjs` locally when a shared QR/leader session is needed, because Vercel
+does not host that long-lived in-memory WebSocket session.
 
 **Google Drive has one canonical handoff file.** `Deploy to Google Drive`
 updates the existing file `Worship Keys Current.worship-keys.json`; it does not
@@ -190,6 +191,11 @@ Exercised in a production build in a real browser, not only in unit tests:
   request returns HTTP 401.
 - The stable Vercel production URL is
   <https://worship-keys-psi.vercel.app>.
+- That production root opens the public performance UI without authentication,
+  exposes `Connect MIDI keyboard`, loads all twelve Sound Wall keys after the
+  required audio gesture and advertises an installable standalone web manifest.
+- `/cloud` remains the authenticated Supabase planner. `/play` is the stable
+  explicit performance route, including on the local server for verification.
 
 Five real bugs were found this way and fixed:
 
@@ -258,6 +264,13 @@ successful Next production build. Dynamic routes include
 - **Opening the Drive setlist requires internet access.** Once imported, the
   local setlist, pads, MIDI and LAN join session continue to run on the church
   Mac; the live session is not routed through Vercel.
+- **Vercel performance is single-device.** Pad audio, MIDI, setlists and local
+  settings run in that browser. QR viewing and remote leader control require
+  the local `server.mjs` host on the church network.
+- **The web manifest does not make pads offline-first.** The app is installable,
+  but a first load still needs internet to download the selected WAV files.
+  Browser HTTP caching helps later visits; no service worker promises offline
+  audio yet.
 - **The current Drive file can legitimately be empty.** At this handoff it is
   named `Sunday Setlist 02. August 2026` and contains zero songs because that is
   the most recently deployed cloud state. Deploy a populated setlist from the

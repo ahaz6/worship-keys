@@ -62,7 +62,7 @@ function CloudAuth({ onNotice }: { onNotice: (message: string) => void }) {
       : await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: `${window.location.origin}/cloud` },
         });
     setBusy(false);
     if (result.error) return onNotice(result.error.message);
@@ -92,7 +92,8 @@ function CloudAuth({ onNotice }: { onNotice: (message: string) => void }) {
           <button className="btn-primary" disabled={busy} onClick={() => void submit("signin")}>Sign in</button>
           <button className="btn" disabled={busy} onClick={() => void submit("signup")}>Create account</button>
         </div>
-        <small>The live audio host and QR session stay on the church Mac and are never exposed publicly.</small>
+        <a className="btn" href="/play">Open performance app</a>
+        <small>Pad audio and MIDI can run in this browser. The shared QR/leader session stays on the church Mac.</small>
       </section>
     </main>
   );
@@ -242,7 +243,10 @@ export function CloudPlanner() {
             <h1>{setlist.name}</h1>
             <p>Prepare the set here, then deploy one current JSON file directly to Google Drive for Sunday.</p>
           </div>
-          <span className="cloud-badge">Cloud planner</span>
+          <div className="btn-row">
+            <a className="btn is-active" href="/play">Open performance app</a>
+            <span className="cloud-badge">Cloud planner</span>
+          </div>
         </header>
 
         {notice ? <div className="callout cloud-notice">{notice}</div> : null}
@@ -292,10 +296,11 @@ export function CloudPlanner() {
             </div>
           </div>
           <div className="cloud-info-card cloud-live-card">
-            <span className="eyebrow">3 · Sunday live host</span>
-            <h3>Open Worship Keys locally on the Mac</h3>
-            <p>Open the deployed Drive JSON on the church Mac, enable audio, then show the join code. The QR still points to the Mac&apos;s local network address.</p>
-            <div className="cloud-flow"><span>Drive file</span><b>→</b><span>Church Mac</span><b>→</b><span>Local QR</span></div>
+            <span className="eyebrow">3 · Play anywhere</span>
+            <h3>Use pads and MIDI directly in the web app</h3>
+            <p>For one musician, open the performance app on any Chromium browser. For a shared QR/leader session, run the same app locally on the church Mac.</p>
+            <div className="cloud-flow"><span>Cloud setlist</span><b>→</b><span>Web performance</span><b>or</b><span>Local QR host</span></div>
+            <a className="btn is-active" href="/play">Play Worship Keys</a>
           </div>
         </section>
       </main>
