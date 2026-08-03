@@ -24,6 +24,7 @@ desktop/tablet review and the central Playwright host flows.
 | 8 | Local live session: host, leader, viewer over WebSocket | Done |
 | 9 | Hardening | Partial — see §7 |
 | 10 | GitHub publication | Done — see §9 |
+| 11 | Cloud planner, Supabase persistence, Drive deploy/import, Vercel | Done — see §4 and §6 |
 
 ## 2. Architecture
 
@@ -57,7 +58,10 @@ lib/voice/           Speech adapter seam and the command parser
 lib/io/              Device enumeration and honest browser-capability reporting
 lib/session/         Wire protocol, authorization, canonical store, WS server, client
 lib/storage/         Zod schemas, migrations, IndexedDB repository, setlist edits
+lib/google-drive/    Service-account Drive upload/download and paired-host access
+lib/supabase/        Browser auth plus server-side bearer-token verification
 lib/hooks/           The React seams over each of the above
+app/api/             Protected Drive deploy and current-setlist download routes
 scripts/             Pad synthesis and icon derivation
 tests/               Vitest suites
 ```
@@ -116,6 +120,26 @@ rather than a leader screen that lies.
 hidden buttons. The host bootstrap secret is served to loopback callers only.
 The leader PIN is stored as a salted hash for the session's lifetime.
 
+**Cloud planning and live audio are deliberately separate.** The Vercel app is
+the authenticated setlist planner. Supabase owns each user's working setlist.
+The church Mac runs `server.mjs` locally, owns Web Audio/MIDI and exposes only
+the current LAN join session. Vercel never hosts the pad engine or the church
+WebSocket session.
+
+**Google Drive has one canonical handoff file.** `Deploy to Google Drive`
+updates the existing file `Worship Keys Current.worship-keys.json`; it does not
+create timestamped copies. The service account has writer access to that file
+only, not to the whole Drive folder. The main audio UI's `Open setlist from
+Drive` button downloads and schema-validates that exact file without opening a
+native file picker.
+
+**The paired church host has read-only authority.** The local Mac has no Google
+private key. A random read token lives in the macOS Keychain under service
+`com.worship-keys.drive-read` and as a Sensitive Vercel environment variable.
+The local API forwards it server-to-server; it is never sent to the browser.
+Production rejects unauthenticated reads. Signed-in, allowlisted Supabase users
+remain a supported fallback.
+
 ## 4. Verified behaviour
 
 Exercised in a production build in a real browser, not only in unit tests:
@@ -137,6 +161,14 @@ Exercised in a production build in a real browser, not only in unit tests:
 - Desktop 1440×900, tablet landscape 1024×768 and tablet portrait 768×1024 were
   reviewed; the portrait rail collapses to a compact band so the performance
   stage stays above the fold.
+- The production cloud planner deploys the current schema-valid JSON to the
+  fixed Drive file through the service account.
+- The local main UI imports that fixed Drive file with one click through the
+  paired-host route: real production verification returned HTTP 200, the exact
+  file name, and the Drive setlist name. A direct unauthenticated production
+  request returns HTTP 401.
+- The stable Vercel production URL is
+  <https://worship-keys-psi.vercel.app>.
 
 Two real bugs were found this way and fixed:
 
@@ -152,6 +184,10 @@ Two real bugs were found this way and fixed:
 
 `npm test` runs the Vitest unit and asset suites. `npm run test:e2e` exercises
 song-owned preset activation/persistence and setlist export/import in Chrome.
+
+The current verification baseline is **144 passing Vitest tests across 9 test
+files**, plus typecheck, ESLint and a successful Next production build. Dynamic
+routes include `/api/deploy-setlist` and `/api/open-setlist-from-drive`.
 
 - `tests/nashville.test.ts` — every mandatory case from spec 12.4, all 12 roots
   × major/minor, all 12 keys × diatonic degrees in both modes, borrowed chords,
@@ -186,6 +222,16 @@ song-owned preset activation/persistence and setlist export/import in Chrome.
   Worship Keys is producing and the UI never claims `Cable connected`.
 - **Imported pads are browser-local.** Audio and preset metadata persist in
   IndexedDB but never sync to another browser or upload to the host.
+- **Opening the Drive setlist requires internet access.** Once imported, the
+  local setlist, pads, MIDI and LAN join session continue to run on the church
+  Mac; the live session is not routed through Vercel.
+- **The current Drive file can legitimately be empty.** At this handoff it is
+  named `Sunday Setlist 02. August 2026` and contains zero songs because that is
+  the most recently deployed cloud state. Deploy a populated setlist from the
+  Cloud Planner before Sunday if songs are expected in the one-click import.
+- **Supabase registration currently auto-confirms email addresses.** This avoids
+  the built-in SMTP rate limit but means addresses are unverified. Before broad
+  public signup, configure custom SMTP and re-enable email verification.
 - **Local HTTPS is not set up.** For a PWA install and for Web MIDI outside
   localhost you will want a trusted local certificate.
 - **`next dev` did not hydrate in the sandboxed browser used for verification.**
@@ -225,16 +271,35 @@ Spec section 27 lists these; the safe defaults are what shipped:
 
 - Repository: <https://github.com/ahaz6/worship-keys> (private)
 - Branch: `main`
-- Published commit: `2df14c538f291be87410784e527c26e9996339b7`
-  (`docs: add README and handoff`)
+- Feature baseline before this handoff update: `aa993c6`
+  (`Pair church host for Drive reads`).
+- Relevant Drive/cloud commits:
+  - `e98f92c` — secure Google Drive setlist deployment
+  - `1fd78fc` — one-click Drive setlist import
+  - `aa993c6` — paired church-host read access
 
-That commit is the state described by everything above: typecheck, lint, 125
-tests and the production build all green, and the browser verification in §4
-performed against it. This paragraph naming the SHA is itself a later commit,
-so `git log` will show one commit after the one quoted here.
+The handoff update itself is necessarily a later commit than the feature
+baseline above. `main` is the deployment source of truth.
 
 Nothing secret is committed. `.env*` is ignored, no tokens are in the tree, and
-all audio in `public/pads/` is generated by the committed script.
+all audio in `public/pads/` is generated by the committed script. Production
+secrets are Sensitive Vercel variables; the local read token is in macOS
+Keychain, and the Google service-account private key is not stored on the Mac.
+
+### Production services
+
+- Vercel project: `worship-keys`
+- Production alias: <https://worship-keys-psi.vercel.app>
+- Supabase project: `mmoizwtjnpfmowoqpmfa`
+- Google Cloud project: `our-axon-504401-e7`
+- Drive folder: <https://drive.google.com/drive/folders/1pD8L0WbTM-i_HdhGT13vM3kbNDVWVcpB>
+- Canonical Drive file: <https://drive.google.com/file/d/1_nJtZGkdWrD5kKfSLGlhsDos-dDZNAcy/view>
+
+Required server-only Vercel variables are documented in `.env.example`:
+`GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`,
+`GOOGLE_DRIVE_FOLDER_ID`, `GOOGLE_DRIVE_FILE_ID`,
+`GOOGLE_DRIVE_DEPLOY_USER_IDS` and `WORSHIP_KEYS_DRIVE_READ_TOKEN`. Never add a
+`NEXT_PUBLIC_` prefix to any of them.
 
 ## 10. If you are picking this up
 
@@ -242,5 +307,9 @@ all audio in `public/pads/` is generated by the committed script.
 2. `npm install && npm run verify` should be green before you change anything.
 3. Keep audio, MIDI and music theory out of React components. The tests depend
    on those modules staying pure, and so does anyone debugging at 9am on a Sunday.
-4. When you add a control, add the accessible version too. Every XY surface in
-   this app also has sliders, and every colour state also has a word.
+4. When you add a control, add the accessible version too. The two XY surfaces
+   expose labelled keyboard operation and every colour state also has a word.
+5. Do not move Google credentials into the local host. Keep Drive writes on
+   Vercel and keep the Mac's authority limited to the paired read token.
+6. Before a service, deploy the intended cloud setlist, click `Open setlist from
+   Drive` on the church Mac, verify the song count, and only then start audio.
