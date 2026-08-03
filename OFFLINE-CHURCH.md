@@ -6,7 +6,7 @@ des Gottesdienstes werden weder Internet noch Vercel, Supabase oder Google Drive
 benötigt.
 
 Für die erstmalige Einrichtung auf einem neuen Mac ohne Git- oder
-Terminalkenntnisse siehe [NEUER-MAC-SETUP.md](NEUER-MAC-SETUP.md).
+Terminalkenntnisse siehe [SETUP.md](SETUP.md).
 
 ## 1. Benötigte Geräte
 
