@@ -12,6 +12,8 @@ export type HostBootstrap = {
   viewerToken: string;
   leaderPin: string;
   joinUrl: string;
+  localJoinUrl: string;
+  cloudJoinUrl: string;
   addresses: { interface: string; address: string }[];
   port: number;
 };
@@ -61,10 +63,10 @@ export function HostPanel({
     setJoinOpen(true);
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(bootstrap.joinUrl);
+        await navigator.clipboard.writeText(bootstrap.cloudJoinUrl);
       } else {
         const field = document.createElement("textarea");
-        field.value = bootstrap.joinUrl;
+        field.value = bootstrap.cloudJoinUrl;
         field.style.position = "fixed";
         field.style.opacity = "0";
         document.body.appendChild(field);
@@ -83,7 +85,7 @@ export function HostPanel({
   useEffect(() => {
     if (!joinOpen || !bootstrap) return;
     let cancelled = false;
-    fetch(`/api/session/qr?url=${encodeURIComponent(bootstrap.joinUrl)}`)
+    fetch(`/api/session/qr?url=${encodeURIComponent(bootstrap.cloudJoinUrl)}`)
       .then((response) => response.json())
       .then((body: { dataUrl?: string }) => {
         if (!cancelled && body.dataUrl) setQr(body.dataUrl);
@@ -175,7 +177,7 @@ export function HostPanel({
           <div className="qr">
             {qr ? (
               // eslint-disable-next-line @next/next/no-img-element -- data URL generated per session, not a static asset
-              <img src={qr} alt={`QR code for ${bootstrap.joinUrl}`} />
+              <img src={qr} alt={`QR code for ${bootstrap.cloudJoinUrl}`} />
             ) : (
               <span className="hint" style={{ color: "#333" }}>
                 Generating…
@@ -185,7 +187,13 @@ export function HostPanel({
           <div className="field">
             <span className="label">Join address</span>
             <strong className="mono" style={{ fontSize: 13, wordBreak: "break-all" }}>
-              {bootstrap.joinUrl}
+              {bootstrap.cloudJoinUrl}
+            </strong>
+          </div>
+          <div className="field">
+            <span className="label">Join key</span>
+            <strong className="mono" style={{ fontSize: 16, wordBreak: "break-all" }}>
+              {bootstrap.viewerToken}
             </strong>
           </div>
           <div className="field">
@@ -206,8 +214,9 @@ export function HostPanel({
             </button>
           </div>
           <p className="hint" style={{ marginTop: 12 }}>
-            A guest network with client isolation will stop iPads reaching this address. Use a dedicated network and give
-            this machine a fixed IP.
+            The Vercel Join UI asks for local-network permission and then connects directly to this Mac. If that is blocked,
+            open <a href={bootstrap.localJoinUrl}>{bootstrap.localJoinUrl}</a>. Guest-network client isolation still prevents
+            devices from reaching each other.
           </p>
         </Modal>
       ) : null}

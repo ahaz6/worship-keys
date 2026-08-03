@@ -17,6 +17,7 @@ import { KeyRibbon } from "@/components/performance/key-ribbon";
 import { NowCard } from "@/components/performance/now-card";
 import { TransportDock } from "@/components/performance/transport-dock";
 import { HostPanel, type HostBootstrap } from "@/components/session/host-panel";
+import { LanConnectButton } from "@/components/session/lan-connect-button";
 import { OpenDriveSetlistButton } from "@/components/setlist/open-drive-setlist-button";
 import { SetlistRail } from "@/components/setlist/setlist-rail";
 import { SongDialog } from "@/components/setlist/song-dialog";
@@ -1011,9 +1012,12 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
                 onNotice={setStorageNotice}
               />
             ) : (
-              <a className="btn tone-quiet" href="/cloud">
-                Cloud planner
-              </a>
+              <>
+                <LanConnectButton />
+                <a className="btn tone-quiet" href="/cloud">
+                  Cloud planner
+                </a>
+              </>
             )}
             <button
               type="button"

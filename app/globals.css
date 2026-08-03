@@ -1691,6 +1691,13 @@ textarea:focus {
   color: #cdc6f0;
 }
 
+.lan-connect-fallback {
+  position: sticky;
+  top: 10px;
+  z-index: 20;
+  margin: 10px 5vw -58px;
+}
+
 /* -------------------------------------------------------------- responsive */
 
 @media (max-width: 1180px) {

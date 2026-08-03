@@ -113,9 +113,9 @@ export function useSession() {
   useEffect(() => () => connection.disconnect(), [connection]);
 
   const connect = useCallback(
-    (token: string, deviceName: string) => {
+    (token: string, deviceName: string, websocketUrl?: string) => {
       rejectedRef.current = false;
-      connection.connect(token, deviceName);
+      connection.connect(token, deviceName, websocketUrl);
     },
     [connection],
   );

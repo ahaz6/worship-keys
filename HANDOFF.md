@@ -160,6 +160,15 @@ state messages also do not inject schema defaults. This prevents valid leader
 commands from becoming stale and prevents a held Crescendo or spatial XY value
 from being reset by another fader packet.
 
+**The Vercel Join UI can target a private LAN host explicitly.** The local host
+places its private IP and viewer token into the public `/join?host=…&t=…` URL.
+That static page opens `ws://<private-ip>/session` directly after the browser's
+Local Network Access permission and never relays live notes through Vercel.
+Only RFC1918, link-local, loopback and `.local` destinations are accepted. The
+leader-PIN HTTP exchange has exact-origin CORS/LNA headers for the production
+Vercel origin. Tokens are stored per LAN host so two churches cannot reuse each
+other's device identity accidentally.
+
 ## 4. Verified behaviour
 
 Exercised in a production build in a real browser, not only in unit tests:
@@ -202,6 +211,12 @@ Exercised in a production build in a real browser, not only in unit tests:
   required audio gesture and advertises an installable standalone web manifest.
 - `/cloud` remains the authenticated Supabase planner. `/play` is the stable
   explicit performance route, including on the local server for verification.
+- `IP Connect` on the public performance page accepts the private host IP and
+  Join key. The local `Show join code` QR opens the Vercel Join UI with both
+  already embedded; viewers receive Nashville, chords, key, keyboard layer and
+  transcript from the Mac. Leader upgrade still requires the six-digit PIN.
+- The local direct Join URL remains visible in the QR dialog as a fallback for
+  Safari or managed browsers that deny cross-network WebSockets.
 
 Five real bugs were found this way and fixed:
 
@@ -228,9 +243,9 @@ Five real bugs were found this way and fixed:
 `npm test` runs the Vitest unit and asset suites. `npm run test:e2e` exercises
 setlist workflows plus the live host → viewer → leader session in Chrome.
 
-The current verification baseline is **147 passing Vitest tests across 9 test
-files**, plus typecheck, ESLint, the live-session Playwright test and a
-successful Next production build. Dynamic routes include
+The current verification baseline is **159 passing Vitest tests across 10 test
+files**, plus typecheck, ESLint, the cloud-performance and live-session
+Playwright tests and a successful Next production build. Dynamic routes include
 `/api/deploy-setlist` and `/api/open-setlist-from-drive`.
 
 - `tests/nashville.test.ts` — every mandatory case from spec 12.4, all 12 roots
@@ -248,6 +263,8 @@ successful Next production build. Dynamic routes include
 - `tests/session.test.ts` — PIN hashing, loopback detection, role permissions,
   join and rejoin, leader handover, revisions, idempotency, snapshot hygiene,
   non-resetting partial settings and automation telemetry revisions.
+- `tests/lan-endpoint.test.ts` — private-IP allowlist, hostile/public endpoint
+  rejection and deterministic cloud/local Join URL generation.
 
 ## 6. Honest limits
 
@@ -271,8 +288,15 @@ successful Next production build. Dynamic routes include
   local setlist, pads, MIDI and LAN join session continue to run on the church
   Mac; the live session is not routed through Vercel.
 - **Vercel performance is single-device.** Pad audio, MIDI, setlists and local
-  settings run in that browser. QR viewing and remote leader control require
-  the local `server.mjs` host on the church network.
+  settings run in that browser. The Vercel Join UI can monitor/control a local
+  `server.mjs` session, but the audio still runs only on the church Mac.
+- **Vercel-to-LAN requires browser permission.** Current Chromium prompts for
+  Local Network Access when the public Join UI opens the private WebSocket.
+  Other browsers or managed policies may block it. The generated local HTTP
+  Join URL is the reliable fallback; top-level navigation is not mixed content.
+- **Wi-Fi client isolation still wins.** No cloud code can make two devices on
+  a guest network reach each other. Use a dedicated router/SSID, keep all
+  devices on the same subnet and give the host Mac a stable DHCP reservation.
 - **The web manifest does not make pads offline-first.** The app is installable,
   but a first load still needs internet to download the selected WAV files.
   Browser HTTP caching helps later visits; no service worker promises offline

@@ -28,6 +28,11 @@ const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 const store = new SessionStore({ sessionName: process.env.WK_SESSION_NAME ?? "Sunday Morning" });
+const publicAppOrigin = (process.env.WORSHIP_KEYS_PUBLIC_APP_URL ?? "https://worship-keys-psi.vercel.app").replace(/\/$/, "");
+const allowedPublicOrigins = new Set([
+  publicAppOrigin,
+  "https://worship-keys-psi.vercel.app",
+]);
 
 /** Every non-internal IPv4 address, so the host screen can show the real one. */
 function lanAddresses() {
@@ -40,13 +45,26 @@ function lanAddresses() {
   return found;
 }
 
-function json(response, status, body) {
+function json(response, status, body, extraHeaders = {}) {
   const payload = JSON.stringify(body);
   response.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
+    ...extraHeaders,
   });
   response.end(payload);
+}
+
+function publicLanCors(request) {
+  const origin = request.headers.origin;
+  if (!origin || !allowedPublicOrigins.has(origin)) return {};
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-allow-headers": "content-type",
+    "access-control-allow-private-network": "true",
+    vary: "Origin",
+  };
 }
 
 async function readJsonBody(request, limitBytes = 4096) {
@@ -68,6 +86,12 @@ async function readJsonBody(request, limitBytes = 4096) {
 async function handleSessionRoute(request, response, url) {
   if (!url.pathname.startsWith("/api/session/")) return false;
 
+  if (url.pathname === "/api/session/leader" && request.method === "OPTIONS") {
+    response.writeHead(204, publicLanCors(request));
+    response.end();
+    return true;
+  }
+
   // GET /api/session/bootstrap — host credentials, loopback callers only.
   if (url.pathname === "/api/session/bootstrap" && request.method === "GET") {
     if (!isLoopbackAddress(request.socket.remoteAddress)) {
@@ -76,12 +100,17 @@ async function handleSessionRoute(request, response, url) {
     }
     const addresses = lanAddresses();
     const preferred = addresses[0]?.address ?? "localhost";
+    const authority = `${preferred}:${port}`;
+    const localJoinUrl = `http://${authority}/join?t=${store.viewerToken}`;
+    const cloudJoinUrl = `${publicAppOrigin}/join?host=${encodeURIComponent(authority)}&t=${store.viewerToken}`;
     json(response, 200, {
       sessionId: store.sessionId,
       hostToken: store.hostToken,
       viewerToken: store.viewerToken,
       leaderPin: store.pin,
-      joinUrl: `http://${preferred}:${port}/join?t=${store.viewerToken}`,
+      joinUrl: localJoinUrl,
+      localJoinUrl,
+      cloudJoinUrl,
       addresses,
       port,
     });
@@ -115,22 +144,23 @@ async function handleSessionRoute(request, response, url) {
 
   // POST /api/session/leader — a device offering the leader PIN.
   if (url.pathname === "/api/session/leader" && request.method === "POST") {
+    const cors = publicLanCors(request);
     let body;
     try {
       body = await readJsonBody(request);
     } catch {
-      json(response, 400, { error: "Unreadable request." });
+      json(response, 400, { error: "Unreadable request." }, cors);
       return true;
     }
     const token = typeof body.token === "string" ? body.token : "";
     const pin = typeof body.pin === "string" ? body.pin : "";
     const joined = store.join(token, "Leader device");
     if ("error" in joined) {
-      json(response, 401, { error: joined.error });
+      json(response, 401, { error: joined.error }, cors);
       return true;
     }
     const outcome = store.requestLeaderRole(joined.deviceId, pin);
-    json(response, outcome.status === "rejected" ? 403 : 200, outcome);
+    json(response, outcome.status === "rejected" ? 403 : 200, outcome, cors);
     return true;
   }
 

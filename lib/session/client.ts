@@ -23,6 +23,7 @@ export class SessionConnection {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private wantsConnection = false;
   private revision = 0;
+  private websocketUrl: string | null = null;
 
   constructor(private readonly events: SessionConnectionEvents) {}
 
@@ -31,9 +32,10 @@ export class SessionConnection {
     this.revision = revision;
   }
 
-  connect(token: string, deviceName: string): void {
+  connect(token: string, deviceName: string, websocketUrl?: string): void {
     this.token = token;
     this.deviceName = deviceName;
+    this.websocketUrl = websocketUrl ?? null;
     this.wantsConnection = true;
     this.open();
   }
@@ -47,7 +49,7 @@ export class SessionConnection {
     this.socket?.close();
 
     const scheme = window.location.protocol === "https:" ? "wss" : "ws";
-    const socket = new WebSocket(`${scheme}://${window.location.host}/session`);
+    const socket = new WebSocket(this.websocketUrl ?? `${scheme}://${window.location.host}/session`);
     this.socket = socket;
     this.events.onStatus("connecting");
 

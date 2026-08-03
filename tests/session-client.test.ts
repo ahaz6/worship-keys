@@ -45,4 +45,11 @@ describe("session client lifecycle", () => {
     expect(FakeWebSocket.instances).toHaveLength(2);
     connection.disconnect();
   });
+
+  it("connects a static Join UI to an explicit LAN WebSocket", () => {
+    const connection = new SessionConnection({ onMessage: () => undefined, onStatus: () => undefined });
+    connection.connect("viewer-token", "iPad", "ws://192.168.2.56:3000/session");
+    expect(FakeWebSocket.instances.at(-1)?.url).toBe("ws://192.168.2.56:3000/session");
+    connection.disconnect();
+  });
 });
