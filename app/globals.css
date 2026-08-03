@@ -1905,6 +1905,549 @@ textarea:focus {
   }
 }
 
+/* ------------------------------------------------------- phone portrait --
+ * Phones get a deliberately reduced performance surface. The breakpoint is
+ * below every supported iPad portrait width, so tablet and desktop layouts
+ * retain their established information density.
+ */
+@media (max-width: 600px) {
+  :root {
+    --wk-radius-card: 12px;
+  }
+
+  html,
+  body {
+    overflow-x: hidden;
+    font-size: 14px;
+  }
+
+  button,
+  input,
+  select {
+    touch-action: manipulation;
+  }
+
+  /* Main host — cloud and local use the same component. */
+  .app-shell {
+    min-width: 0;
+  }
+
+  .rail-left {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: max(10px, env(safe-area-inset-top)) 12px 10px;
+    background: #0d0d12f5;
+  }
+
+  .rail-left > .brand,
+  .rail-left > .rail-foot,
+  .rail-left .section-title {
+    display: none;
+  }
+
+  .rail-left > .btn-primary {
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+    min-height: 44px;
+    padding-inline: 14px;
+    white-space: nowrap;
+  }
+
+  .rail-left > div:not(.setlist):not(.rail-foot) {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .rail-left .setlist-name {
+    height: 44px;
+    padding: 8px 10px;
+    background: #15151b;
+    font-size: 13px;
+  }
+
+  .rail-left > .setlist {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: row;
+    gap: 7px;
+    overflow-x: auto;
+    padding: 1px 0 4px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .rail-left > .setlist::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rail-left .song-row-wrap {
+    flex: 0 0 min(72vw, 260px);
+    scroll-snap-align: start;
+  }
+
+  .rail-left .song-row {
+    min-height: 54px;
+    padding: 8px 9px;
+    background: #121218;
+    border: 1px solid var(--wk-line);
+  }
+
+  .stage-top {
+    position: sticky;
+    top: 0;
+    z-index: 12;
+    min-height: 0;
+    padding: 11px 12px;
+    background: #0c0c11f2;
+    backdrop-filter: blur(16px);
+  }
+
+  .stage-title h1 {
+    margin-top: 3px;
+    font-size: 22px;
+  }
+
+  .stage-title .eyebrow {
+    font-size: 8px;
+  }
+
+  .stage-title .sub {
+    gap: 7px;
+    margin-top: 5px;
+    font-size: 10px;
+  }
+
+  .stage-actions {
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 1px 0 3px;
+    scrollbar-width: none;
+  }
+
+  .stage-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .stage-actions > * {
+    flex: 0 0 auto;
+  }
+
+  .stage-actions > :nth-child(3) {
+    order: -3;
+  }
+
+  .stage-actions > :nth-child(4) {
+    order: -2;
+  }
+
+  .stage-actions > :nth-child(6) {
+    order: -1;
+  }
+
+  .stage-actions .btn,
+  .stage-actions .role-chip {
+    min-height: 42px;
+    padding-inline: 11px;
+    white-space: nowrap;
+  }
+
+  .stage-body {
+    gap: 14px;
+    padding: 14px 10px 22px;
+  }
+
+  .now-card {
+    gap: 12px;
+    padding: 15px;
+    box-shadow: 0 12px 34px #0007;
+  }
+
+  .now-primary {
+    align-items: center;
+    text-align: center;
+  }
+
+  .now-primary .nashville {
+    font-size: 88px;
+    line-height: .9;
+  }
+
+  .now-primary .nashville.is-idle {
+    font-size: 38px;
+  }
+
+  .chord-name {
+    font-size: 21px;
+  }
+
+  .now-primary .confidence-bar,
+  .now-primary > .meta {
+    display: none;
+  }
+
+  .now-secondary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    padding-top: 10px;
+    border-top: 1px solid var(--wk-line);
+  }
+
+  .fact {
+    padding: 8px;
+    border-radius: 8px;
+    background: #0f0f14;
+  }
+
+  .fact strong {
+    font-size: 14px;
+  }
+
+  .performance-key-section .section-title {
+    padding-inline: 2px;
+  }
+
+  .key-ribbon {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .key-pad {
+    min-height: 68px;
+    border-radius: 12px;
+    font-size: 16px;
+  }
+
+  .key-pad .badge {
+    top: 4px;
+    right: 5px;
+    font-size: 6px;
+  }
+
+  .midi-keyboard-section,
+  .stage-body > .status-line {
+    display: none;
+  }
+
+  .dock {
+    gap: 10px;
+    padding: 13px;
+  }
+
+  .dock-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dock-actions .transport-btn,
+  .dock-actions .btn {
+    min-width: 0;
+    min-height: 52px;
+    padding-inline: 8px;
+  }
+
+  .dock-actions .tone-stop {
+    grid-column: 1 / -1;
+    min-height: 40px;
+  }
+
+  .rail-right {
+    display: block;
+    padding: 12px 10px calc(20px + env(safe-area-inset-bottom));
+    background: #0c0c11;
+    backdrop-filter: none;
+  }
+
+  .rail-right > :not(:first-child) {
+    display: none;
+  }
+
+  .rail-right > .host-session-panel {
+    display: grid;
+    margin-top: 12px;
+  }
+
+  .host-session-panel > .hint {
+    display: none;
+  }
+
+  .rail-right > .panel-card:first-child {
+    gap: 13px;
+    padding: 14px;
+  }
+
+  .rail-right > .panel-card:first-child > .pad-preset-field,
+  .rail-right > .panel-card:first-child > .hint,
+  .rail-right > .panel-card:first-child > .inline-fields {
+    display: none;
+  }
+
+  .rail-right .xy-pad {
+    height: 154px;
+  }
+
+  .rail-right .slider {
+    height: 8px;
+  }
+
+  /* Shared Join monitor. */
+  .live-shell {
+    gap: 14px;
+    padding: max(14px, env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom));
+  }
+
+  .live-top {
+    gap: 8px;
+  }
+
+  .live-top .brand {
+    padding: 0;
+    gap: 8px;
+  }
+
+  .live-top .brand-logo {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+
+  .live-top .brand-copy {
+    display: none;
+  }
+
+  .live-top .btn-row {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .live-top .btn,
+  .live-top .role-chip {
+    min-height: 40px;
+    padding: 7px 9px;
+    font-size: 9px;
+    letter-spacing: .08em;
+  }
+
+  .viewer-live-shell .live-main {
+    min-height: 56vh;
+    justify-content: center;
+    gap: 9px;
+  }
+
+  .viewer-live-shell .live-main > .label {
+    max-width: 92vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .viewer-live-shell .live-nashville {
+    font-size: clamp(116px, 42vw, 170px);
+  }
+
+  .viewer-live-shell .live-chord {
+    font-size: clamp(32px, 10vw, 46px);
+  }
+
+  .viewer-live-shell .live-key {
+    font-size: 15px;
+  }
+
+  .viewer-live-shell .viewer-keyboard-layer,
+  .viewer-live-shell .transcript {
+    display: none;
+  }
+
+  .viewer-live-shell .status-line {
+    justify-content: center;
+  }
+
+  /* Join leader/host controller. */
+  .leader-live-top {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+    margin: -14px -12px 0;
+    padding: max(10px, env(safe-area-inset-top)) 12px 10px;
+    border-bottom: 1px solid var(--wk-line);
+    background: #0b0b10f2;
+    backdrop-filter: blur(18px);
+  }
+
+  .leader-live-top > .btn-row {
+    justify-self: end;
+  }
+
+  .leader-top-transport {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 7px;
+  }
+
+  .leader-top-transport-button {
+    min-width: 0;
+    min-height: 50px;
+    padding: 0 7px;
+    font-size: 11px;
+  }
+
+  .leader-live-main {
+    min-height: 270px;
+    flex: 0 0 auto;
+    padding: 6px 0;
+  }
+
+  .leader-live-main > .label {
+    max-width: 92vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .leader-live-main .live-nashville {
+    font-size: 92px !important;
+  }
+
+  .leader-now-row {
+    grid-template-columns: 64px minmax(0, 1fr) 64px;
+    gap: 8px;
+  }
+
+  .leader-song-nav,
+  .leader-song-nav.is-next {
+    justify-content: center;
+  }
+
+  .leader-song-name {
+    display: none;
+  }
+
+  .leader-song-arrow {
+    width: 58px;
+    height: 58px;
+    font-size: 26px;
+  }
+
+  .leader-now-row .live-chord {
+    font-size: 27px !important;
+  }
+
+  .leader-live-main .live-key {
+    font-size: 15px;
+  }
+
+  .leader-live-main .live-prepared {
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+
+  .leader-performance-stack {
+    display: grid;
+    gap: 12px;
+  }
+
+  .leader-performance-stack > div:first-child .hint,
+  .leader-keyboard-layer {
+    display: none;
+  }
+
+  .leader-pad-controls {
+    gap: 12px;
+    padding: 13px;
+  }
+
+  .leader-sound-layout {
+    grid-template-columns: 1fr;
+    gap: 11px;
+  }
+
+  .leader-sound-layout .xy-pad {
+    height: 152px;
+  }
+
+  .leader-vertical-controls {
+    grid-column: auto;
+    grid-row: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .leader-vertical-field {
+    grid-template: auto auto auto / 1fr auto;
+    min-height: 0;
+    padding: 10px;
+    text-align: left;
+  }
+
+  .leader-vertical-field > span {
+    justify-self: start;
+  }
+
+  .leader-vertical-field > strong {
+    justify-self: end;
+  }
+
+  .leader-vertical-field > small {
+    display: none;
+  }
+
+  .leader-vertical-slider {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 28px;
+    writing-mode: horizontal-tb;
+    direction: ltr;
+  }
+
+  .leader-pad-quick-actions .btn:not(:first-child),
+  .leader-timing-controls {
+    display: none;
+  }
+
+  .leader-pad-quick-actions .btn:first-child,
+  .leader-stop-actions .transport-btn {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .leader-stop-actions {
+    display: block;
+  }
+
+  .leader-performance-stack > .status-line {
+    justify-content: center;
+  }
+
+  .centered-page {
+    padding: 14px;
+  }
+
+  .card,
+  .modal {
+    padding: 20px 16px;
+    border-radius: 16px;
+  }
+
+  .modal-backdrop {
+    align-items: end;
+    padding: 8px;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: 92dvh;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

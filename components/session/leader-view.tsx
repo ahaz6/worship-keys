@@ -137,7 +137,7 @@ export function LeaderView({
         </div>
       ) : null}
 
-      <div className="live-main" style={{ gap: 8 }}>
+      <div className="live-main leader-live-main" style={{ gap: 8 }}>
         <span className="label">
           {snapshot?.activeSong
             ? `${snapshot.activeSong.title} · Song ${snapshot.activeSong.position} of ${snapshot.activeSong.total}`
@@ -203,7 +203,7 @@ export function LeaderView({
         ) : null}
       </div>
 
-      <div style={{ display: "grid", gap: 14 }}>
+      <div className="leader-performance-stack">
         <div>
           <div className="section-title">
             <span>Concert key · tap to transition</span>
@@ -240,7 +240,7 @@ export function LeaderView({
           <LeaderPadControls snapshot={snapshot} locked={locked} onCommand={onCommand} />
         ) : null}
 
-        <div className="dock-actions">
+        <div className="dock-actions leader-stop-actions">
           <button type="button" className="transport-btn tone-stop" disabled={locked || pendingCommand} onClick={() => onCommand({ type: "stop-pads" })}>
             Stop now
           </button>

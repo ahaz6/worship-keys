@@ -1052,7 +1052,7 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
               {song?.bpm ? <span className="mono">{song.bpm} bpm</span> : null}
             </div>
           </div>
-          <div className="btn-row">
+          <div className="btn-row stage-actions">
             <DriveSetlistDialog
               state={createPersistedState(setlist, preferences)}
               onImport={(state) => {
@@ -1149,7 +1149,7 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
             transitionLabel={transitionLabel}
           />
 
-          <div>
+          <div className="performance-key-section">
             <div className="section-title">
               <span>Concert key</span>
               <span>{pads.loadingKeys ? "Loading pads…" : audioStarted ? `${pads.readyKeys.size} of 12 ready` : "Enable audio to load pads"}</span>
@@ -1164,7 +1164,7 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
             />
           </div>
 
-          <div>
+          <div className="midi-keyboard-section">
             <div className="section-title">
               <span>MIDI keyboard</span>
               <span>{midi.notes.sustainDown ? "Sustain down" : "Sustain up"}</span>

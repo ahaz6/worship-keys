@@ -117,7 +117,7 @@ export function HostPanel({
   const waiting = others.filter((device) => device.leaderRequested);
 
   return (
-    <section className="panel-card" aria-label="Live session">
+    <section className="panel-card host-session-panel" aria-label="Live session">
       <div className="section-title" style={{ padding: 0 }}>
         <span>{localChurchMode ? "Offline Church Mode" : "Live session"}</span>
         <span>{others.length} device{others.length === 1 ? "" : "s"}</span>

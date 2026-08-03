@@ -89,7 +89,7 @@ export function PadControls({
         </span>
       </div>
 
-      <div className="field">
+      <div className="field pad-preset-field">
         <div className="field-head">
           <b>
             <label htmlFor="pad-preset">Preset</label>

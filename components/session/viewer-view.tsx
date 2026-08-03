@@ -28,7 +28,7 @@ export function ViewerView({
   const transcript = snapshot?.transcript ?? [];
 
   return (
-    <div className="live-shell">
+    <div className="live-shell viewer-live-shell">
       <div className="live-top">
         <BrandMark size={38} />
         <div className="btn-row">

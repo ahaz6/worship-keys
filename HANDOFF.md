@@ -282,13 +282,21 @@ Five real bugs were found this way and fixed:
    asset URL. Song navigation now requests a deliberate same-asset restart and
    crossfades the two independent voices.
 
+**Phones receive a dedicated performance layout.** At viewports up to 600 px,
+the host and Join screens reduce secondary chrome, use a three-column concert-key
+grid with large touch targets, keep transport controls within thumb reach and
+present the pad sound surfaces without the desktop technical panels. View-only
+Join clients receive a minimal Nashville monitor, while Join leaders retain the
+complete live controls in a compact order. The breakpoint is deliberately below
+the iPad layout, so tablet and desktop screens keep their established UI.
+
 ## 5. Testing
 
 `npm test` runs the Vitest unit and asset suites. `npm run test:e2e` exercises
 setlist workflows plus the live host → viewer → leader session in Chrome.
 
 The current verification baseline is **162 passing Vitest tests across 11 test
-files**, plus typecheck, ESLint, all **7 Playwright browser flows** (including a
+files**, plus typecheck, ESLint, all **8 Playwright browser flows** (including a
 real two-profile Supabase Cloud Live session and an offline host/device request
 audit) and a successful Next production build. Dynamic routes include `/api/deploy-setlist`,
 `/api/open-setlist-from-drive` and `/api/session/qr`.
@@ -310,6 +318,9 @@ audit) and a successful Next production build. Dynamic routes include `/api/depl
   non-resetting partial settings and automation telemetry revisions.
 - `tests/lan-endpoint.test.ts` — private-IP allowlist, hostile/public endpoint
   rejection and deterministic cloud/local Join URL generation.
+- `e2e/mobile.spec.ts` — 390 px host, viewer and leader layouts, touch-sized
+  concert keys, hidden phone-only clutter, QR dialog stacking and overflow;
+  the existing 820 px tablet layout is also visually checked before release.
 
 ## 6. Honest limits
 
