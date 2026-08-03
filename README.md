@@ -104,6 +104,7 @@ is included.
 ## Documentation
 
 - `HANDOFF.md` — architecture, decisions, known limits and next steps
-- `OFFLINE-CHURCH.md` — setup and Sunday checklist for a router without internet
+- `ARC42.md` — vollständige arc42-Architekturdokumentation des Gesamtsystems
+- `OFFLINE-CHURCH.md` — deutsche Einrichtung und Sonntags-Checkliste ohne Internet
 - `Worship-Keys.md` — the product specification this was built from
 - `Design-Art.md` — the shared Worship suite art direction

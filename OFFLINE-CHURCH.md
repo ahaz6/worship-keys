@@ -1,48 +1,186 @@
-# Worship Keys — Offline Church Mode
+# Worship Keys – Anleitung für den Offline-Church-Modus
 
-Offline Church Mode runs pad audio, MIDI, Nashville and every Join device on the
-church Mac and its local router. The service does not require internet, Vercel,
-Supabase or Google Drive.
+Der Offline-Church-Modus betreibt Pad-Audio, MIDI, Nashville-Anzeige und alle
+Join-Geräte vollständig auf dem Kirchen-Mac und im lokalen Gemeindenetz. Während
+des Gottesdienstes werden weder Internet noch Vercel, Supabase oder Google Drive
+benötigt.
 
-## Prepare before Sunday
+## 1. Benötigte Geräte
 
-1. Prepare the setlist at `https://worship-keys-psi.vercel.app/play` on the phone.
-2. Open **Google Drive** and choose **Deploy to Google Drive**.
-3. While the Mac still has internet, open Worship Keys and choose
-   **Open setlist from Drive**.
-4. Confirm **Saved on this device**. This local copy is the Sunday fallback.
-5. Install or refresh the Mac launcher from this project directory:
+- ein Mac mit Chrome und der installierten App **Worship Keys Church**,
+- ein Router oder Netzwerk-Switch,
+- bei einem Router ohne WLAN zusätzlich ein WLAN-Access-Point,
+- Smartphones oder Tablets im selben lokalen Netzwerk,
+- optional MIDI-Keyboard und Audiointerface.
 
-   ```bash
-   npm run church:install
-   ```
+Der Router benötigt keinen Internetanschluss. Er muss den Geräten lediglich
+lokale IP-Adressen geben. Gast-WLAN und Client-Isolation müssen ausgeschaltet
+sein, damit sich die Geräte gegenseitig erreichen können.
 
-The installer creates **Worship Keys Church.app** in the current macOS user's
-Applications folder. It uses the original Worship Keys icon and opens the local
-host without a Terminal window.
+## 2. Einmalige Installation auf dem Mac
 
-## Sunday without internet
+Im Projektordner ausführen:
 
-1. Connect the Mac to the church router with Ethernet or its local Wi-Fi.
-2. If the router has no wireless radio, connect a Wi-Fi access point to it so
-   phones and tablets can join the same network.
-3. Open **Worship Keys Church** from Applications.
-4. In **Offline Church Mode**, choose **Check all offline pads**.
-5. Wait for **READY · INTERNET NOT REQUIRED**.
-6. Choose **Show local join QR**. The QR must start with a private address such
-   as `http://192.168…`, `http://10…` or `http://172.16–31…` — never Vercel.
-7. Musicians join the router/access-point network and scan the QR.
+```bash
+npm run church:install
+```
 
-The first time, macOS may ask whether Node may accept incoming network
-connections. Choose **Allow**. Keep the Mac awake and connected to power during
-the service.
+Dadurch werden folgende Komponenten eingerichtet:
 
-## Troubleshooting
+- `~/Applications/Worship Keys Church.app`,
+- der macOS-Hintergrunddienst
+  `~/Library/LaunchAgents/app.worshipkeys.church.host.plist`,
+- das Protokoll unter
+  `~/Library/Logs/Worship Keys/church-host.log`.
 
-- **No Router IP:** connect Ethernet/Wi-Fi, then restart the Church app.
-- **Wrong adapter selected:** launch with `WK_LAN_IP=192.168.x.x` from the
-  project as an advanced override, then reinstall when the network is stable.
-- **Devices cannot open the QR:** confirm they are on the same router and that
-  macOS Firewall allows incoming connections for Node.
-- **Pads not ready:** press **Check all offline pads** and wait for 12/12.
-- **App does not start:** inspect `~/Library/Logs/Worship Keys/church-host.log`.
+Die App verwendet das originale Worship-Keys-Icon. Beim Doppelklick startet
+macOS den lokalen Server im Hintergrund und öffnet `http://localhost:3000` im
+Browser. Ein Terminalfenster ist dafür nicht erforderlich.
+
+Nach größeren Aktualisierungen von Worship Keys den Installationsbefehl erneut
+ausführen. Die App ist im persönlichen Programme-Ordner des Benutzers und nicht
+unter dem allgemeinen `/Applications` abgelegt.
+
+## 3. Setlist zu Hause vorbereiten
+
+1. [Worship Keys Play](https://worship-keys-psi.vercel.app/play) auf dem Handy
+   oder Computer öffnen.
+2. Songs, Tonarten, Taktarten und Tempi vorbereiten.
+3. **Google Drive** öffnen und **Deploy to Google Drive** wählen.
+4. Auf dem Kirchen-Mac Worship Keys öffnen, solange Internet verfügbar ist.
+5. **Open setlist from Drive** wählen.
+6. Songanzahl und Reihenfolge prüfen.
+7. Auf die Anzeige **Saved on this device** achten.
+
+Google Drive enthält genau eine aktuelle Übergabedatei:
+`Worship Keys Current.worship-keys.json`. Der Import wird mit Zod gegen das
+aktuelle Setlist-Schema validiert. Nach dem Import liegt die Setlist in der
+IndexedDB des Browsers und steht damit auch ohne Internet bereit.
+
+## 4. Aufbau in der Gemeinde
+
+1. Mac per Ethernet oder WLAN mit dem Kirchenrouter verbinden.
+2. Bei einem Router ohne WLAN einen Access Point per Netzwerkkabel anschließen.
+3. Smartphones und Tablets mit diesem WLAN verbinden.
+4. Prüfen, dass alle Geräte im selben lokalen Netz sind.
+5. Mac an Strom anschließen und Ruhezustand während des Gottesdienstes
+   verhindern.
+
+Ein Access Point stellt nur die Funkverbindung bereit. Der Router darf weiterhin
+vollständig ohne Internet betrieben werden.
+
+## 5. Worship Keys am Sonntag starten
+
+1. Im Finder den persönlichen Ordner **Programme** öffnen.
+2. **Worship Keys Church** doppelklicken.
+3. Beim ersten Start eingehende Netzwerkverbindungen für Node erlauben.
+4. Im Bereich **Offline Church Mode** auf **Check all offline pads** klicken.
+5. Warten, bis alle zwölf Tonarten geladen sind.
+6. Erst bei **READY · INTERNET NOT REQUIRED** fortfahren.
+
+Der Bereitschaftscheck kontrolliert:
+
+- der lokale Host ist verbunden,
+- eine private Router-IP wurde erkannt,
+- die Setlist ist vorhanden und lokal gespeichert,
+- alle zwölf Sound-Wall-Pads wurden erfolgreich dekodiert.
+
+Die bevorzugte IP wird automatisch ermittelt. Physische Netzwerkadapter wie
+Ethernet und WLAN werden gegenüber VPN-, Bridge- und virtuellen Interfaces
+bevorzugt.
+
+## 6. Musiker über den QR-Code verbinden
+
+1. **Show local join QR** wählen.
+2. Prüfen, dass die Adresse mit `192.168.`, `10.` oder `172.16–31.` beginnt.
+3. Musiker scannen den QR-Code im selben WLAN.
+4. Jedes Gerät vergibt beim ersten Beitritt einmalig einen Namen.
+5. Viewer sehen Nashville, Akkord, Keyboard-Layer und Setlist.
+6. Ein berechtigter Leader kann Songs, Tonarten, Pads, Fades und Crescendo
+   fernsteuern.
+
+Der lokale QR darf niemals auf `vercel.app` zeigen. Audio wird nicht über das
+Netzwerk übertragen: Es bleibt ausschließlich auf dem Host-Mac. Über das lokale
+WebSocket werden nur kompakte Zustände und Steuerbefehle ausgetauscht.
+
+## 7. Verhalten bei einem Netzwerkausfall
+
+- Das Pad-Audio spielt auf dem Mac weiter.
+- MIDI, Nashville und lokale Bedienung funktionieren weiter.
+- Join-Geräte zeigen keine neuen Zustände, bis die Verbindung zurückkehrt.
+- Nach Wiederherstellung verbindet sich die Join-Oberfläche erneut.
+- Ein Internetausfall hat im Offline-Church-Modus keine Auswirkung.
+
+## 8. Nach dem Gottesdienst
+
+Das Schließen des Browsertabs beendet den lokalen Hintergrunddienst nicht. Ein
+erneuter Doppelklick auf **Worship Keys Church** öffnet die laufende Oberfläche
+wieder. Spätestens beim Abmelden oder Herunterfahren des Macs wird der Dienst
+beendet.
+
+Für einen manuellen Stopp kann technisch folgender Befehl verwendet werden:
+
+```bash
+launchctl kill SIGTERM gui/$(id -u)/app.worshipkeys.church.host
+```
+
+## 9. Fehlerbehebung
+
+### App wird nicht gefunden
+
+Sie liegt unter:
+
+```text
+/Users/ahazsubramaniyam/Applications/Worship Keys Church.app
+```
+
+Dieser Ordner entspricht dem persönlichen Programme-Ordner des Benutzers.
+
+### App reagiert beim Öffnen nicht
+
+Die aktuelle Installation verwendet einen macOS-LaunchAgent. Den Installer
+erneut ausführen und danach die App neu öffnen:
+
+```bash
+npm run church:install
+```
+
+### Keine Router-IP
+
+- Ethernet/WLAN prüfen,
+- VPN vorübergehend deaktivieren,
+- Church-App neu öffnen,
+- bei mehreren Netzen notfalls `WK_LAN_IP` als erweiterten Startparameter
+  verwenden.
+
+### QR-Code ist auf anderen Geräten nicht erreichbar
+
+- alle Geräte müssen im selben Netz sein,
+- Gast-WLAN und Client-Isolation ausschalten,
+- macOS-Firewall muss eingehende Verbindungen für Node erlauben,
+- der QR muss eine private lokale IP und Port `3000` enthalten.
+
+### Pads sind nicht bereit
+
+- **Check all offline pads** erneut drücken,
+- warten, bis `12/12` angezeigt wird,
+- Audioausgang und Browserfreigabe prüfen,
+- Browser-Konsole und Church-Host-Protokoll kontrollieren.
+
+### App startet nicht
+
+Das Protokoll öffnen:
+
+```text
+~/Library/Logs/Worship Keys/church-host.log
+```
+
+## 10. Sicherheitsregeln
+
+- QR-Code und Leader-PIN nur mit dem Worship-Team teilen.
+- Nach einem unerwünschten Zugriff den PIN erneuern oder das Gerät widerrufen.
+- Host-Geheimnisse sind nur über Loopback auf dem Mac abrufbar.
+- Viewer-Berechtigungen werden serverseitig durchgesetzt.
+- Google-Servicekonto und private Schlüssel bleiben ausschließlich auf Vercel.
+- Der Kirchen-Mac besitzt nur einen eingeschränkten Lesetoken für die
+  Drive-Übergabe.
