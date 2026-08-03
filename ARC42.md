@@ -1,7 +1,9 @@
 # Worship Keys – arc42-Architekturdokumentation
 
-Stand: 3. August 2026  
-Repository: `ahaz6/worship-keys`  
+Stand: 3. August 2026
+
+Repository: `ahaz6/worship-keys`
+
 Produktivsystem: [worship-keys-psi.vercel.app](https://worship-keys-psi.vercel.app)
 
 Diese Dokumentation beschreibt den aktuellen Stand von Worship Keys nach der
@@ -437,4 +439,3 @@ laufende Audio nicht beeinflussen.
 | Snapshot | Vollständige, validierte Sicht auf den Live-Zustand. |
 | Revision | Monotone Versionsnummer semantischer Sessionänderungen. |
 | LaunchAgent | macOS-Hintergrunddienst, der den lokalen Church-Host verwaltet. |
-
