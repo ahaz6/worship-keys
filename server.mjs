@@ -109,12 +109,27 @@ async function handleSessionRoute(request, response, url) {
       hostToken: store.hostToken,
       viewerToken: store.viewerToken,
       leaderPin: store.pin,
+      joinCode: store.joinCode,
       joinUrl: localJoinUrl,
       localJoinUrl,
       cloudJoinUrl,
       addresses,
       port,
     });
+    return true;
+  }
+
+  // GET /api/session/resolve-code — public viewer-link discovery on this LAN.
+  if (url.pathname === "/api/session/resolve-code" && request.method === "GET") {
+    const code = url.searchParams.get("code") ?? "";
+    if (code !== store.joinCode) {
+      json(response, 404, { error: "No active local session was found for this code." });
+      return true;
+    }
+    // The device already reached this origin, so preserve that exact reachable
+    // authority instead of guessing which Mac interface it used.
+    const authority = request.headers.host ?? `localhost:${port}`;
+    json(response, 200, { joinUrl: `http://${authority}/join?t=${store.viewerToken}` });
     return true;
   }
 

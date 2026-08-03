@@ -12,6 +12,12 @@ export const metadata: Metadata = {
   title: "Worship Keys",
   description: "Play the room, see the harmony, prepare the next moment.",
   applicationName: "Worship Keys",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Worship Keys",
+    statusBarStyle: "black-translucent",
+  },
   icons: {
     icon: WORSHIP_KEYS_ICON_DATA_URL,
   },

@@ -12,6 +12,7 @@ export type HostBootstrap = {
   hostToken: string;
   viewerToken: string;
   leaderPin: string;
+  joinCode: string;
   joinUrl: string;
   localJoinUrl: string;
   cloudJoinUrl: string;
@@ -211,7 +212,7 @@ export function HostPanel({
       {joinOpen && bootstrap ? (
         <Modal title="Join this session" onClose={() => setJoinOpen(false)}>
           {copyNotice ? <div className="callout tone-info">{copyNotice}</div> : null}
-          <p className="hint">Musicians scan this code and land in the view-only monitor. The pianist then enters the leader PIN.</p>
+          <p className="hint">Musicians scan the QR or enter the six-digit code in Worship Join. They land in the view-only monitor; the pianist then enters the separate leader PIN.</p>
           <div className="qr">
             {qr ? (
               // eslint-disable-next-line @next/next/no-img-element -- data URL generated per session, not a static asset
@@ -229,10 +230,9 @@ export function HostPanel({
             </strong>
           </div>
           <div className="field">
-            <span className="label">Join key</span>
-            <strong className="mono" style={{ fontSize: 16, wordBreak: "break-all" }}>
-              {bootstrap.viewerToken}
-            </strong>
+            <span className="label">Six-digit session code</span>
+            <strong className="pin-display join-code-display">{bootstrap.joinCode}</strong>
+            <span className="hint">Open the fixed “Worship Join” Home Screen app and enter this code.</span>
           </div>
           <div className="field">
             <span className="label">Leader PIN</span>

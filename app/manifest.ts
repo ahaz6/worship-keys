@@ -2,10 +2,12 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/worship-keys",
     name: "Worship Keys",
     short_name: "Worship Keys",
     description: "Play Sound Wall Pads with a Web MIDI keyboard directly in your browser.",
     start_url: "/",
+    scope: "/",
     display: "standalone",
     background_color: "#09090c",
     theme_color: "#09090c",

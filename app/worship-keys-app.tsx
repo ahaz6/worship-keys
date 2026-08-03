@@ -28,6 +28,7 @@ import { usePadEngine } from "@/lib/hooks/use-pad-engine";
 import { useSession } from "@/lib/hooks/use-session";
 import { useVoice } from "@/lib/hooks/use-voice";
 import { createCloudSessionBootstrap } from "@/lib/session/cloud-session";
+import { registerCloudJoinCode } from "@/lib/session/join-code";
 import {
   type AudioDeviceInfo,
   chooseOutputDevice,
@@ -694,6 +695,11 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
     return () => session.disconnect();
     // Connecting once per bootstrap is intended; session identity does not change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bootstrap]);
+
+  useEffect(() => {
+    if (!bootstrap || bootstrap.transport !== "cloud") return;
+    return registerCloudJoinCode(bootstrap.joinCode, bootstrap.viewerToken);
   }, [bootstrap]);
 
   const applyLeaderCommand = useCallback(

@@ -17,12 +17,18 @@ test("viewer joins and upgrades to leader without duplicate reconnects", async (
   const bootstrap = (await bootstrapResponse.json()) as {
     viewerToken: string;
     leaderPin: string;
+    joinCode: string;
     cloudJoinUrl: string;
     localJoinUrl: string;
   };
   expect(bootstrap.cloudJoinUrl).toContain("https://worship-keys-psi.vercel.app/join?host=");
   expect(bootstrap.cloudJoinUrl).toContain(`t=${bootstrap.viewerToken}`);
   expect(bootstrap.localJoinUrl).toContain(`/join?t=${bootstrap.viewerToken}`);
+  expect(bootstrap.joinCode).toMatch(/^\d{6}$/);
+  const resolved = await request.get(`/api/session/resolve-code?code=${bootstrap.joinCode}`);
+  expect(resolved.ok()).toBe(true);
+  expect((await resolved.json()).joinUrl).toBe(`http://127.0.0.1:3100/join?t=${bootstrap.viewerToken}`);
+  expect((await request.get("/api/session/resolve-code?code=000000")).status()).toBe(404);
   await expect(page.getByText(bootstrap.localJoinUrl, { exact: true })).toBeVisible();
   await expect(page.getByText("This QR stays entirely inside the local church network", { exact: false })).toBeVisible();
   await expect(page.getByText("READY · INTERNET NOT REQUIRED", { exact: true })).toBeVisible();
@@ -51,7 +57,10 @@ test("viewer joins and upgrades to leader without duplicate reconnects", async (
   device.on("request", (outgoing) => {
     if (!outgoing.url().startsWith("http://127.0.0.1:3100")) deviceExternalRequests.push(outgoing.url());
   });
-  await device.goto(`/join?host=127.0.0.1:3100&t=${bootstrap.viewerToken}`);
+  await device.goto("/join-app");
+  await device.getByLabel("Session code").fill(bootstrap.joinCode);
+  await device.getByRole("button", { name: "Join session", exact: true }).click();
+  await device.waitForURL(/\/join\?t=/);
   await device.getByLabel("Device name").fill("Pianist iPad");
   await device.getByRole("button", { name: "Join", exact: true }).click();
   await expect(device.getByText("VIEW ONLY · LIVE", { exact: true })).toBeVisible();

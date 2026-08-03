@@ -1795,6 +1795,102 @@ textarea:focus {
   color: #cdc6f0;
 }
 
+.join-code-display {
+  display: block;
+  padding: 10px 0 4px;
+  font-size: clamp(32px, 8vw, 46px);
+  line-height: 1;
+}
+
+.join-code-page {
+  min-height: 100dvh;
+}
+
+.join-code-card {
+  width: min(480px, 100%);
+  gap: 22px;
+}
+
+.join-code-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.join-code-copy h1 {
+  margin: 0;
+  font-size: clamp(30px, 7vw, 44px);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+
+.join-code-copy p {
+  margin: 0;
+  color: var(--wk-muted);
+  line-height: 1.55;
+}
+
+.join-code-form {
+  display: grid;
+  gap: 10px;
+}
+
+.join-code-input {
+  width: 100%;
+  min-height: 76px;
+  padding: 10px 16px;
+  border: 1px solid #514975;
+  border-radius: 14px;
+  background: #0c0c12;
+  color: var(--wk-text);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: clamp(34px, 11vw, 52px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2em;
+  text-align: center;
+  outline: none;
+}
+
+.join-code-input::placeholder {
+  color: #595666;
+}
+
+.join-code-input:focus {
+  border-color: var(--wk-accent-2);
+  box-shadow: 0 0 0 3px #8878ff24;
+}
+
+.join-code-submit {
+  min-height: 54px;
+}
+
+.join-code-install-note {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid var(--wk-line);
+  border-radius: 12px;
+  background: #111119;
+  color: var(--wk-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.join-code-install-note strong {
+  color: var(--wk-text);
+  font-size: 13px;
+}
+
+.join-code-main-link {
+  justify-self: center;
+  color: #aaa3d2;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.join-code-main-link:hover {
+  color: var(--wk-text);
+}
+
 .lan-connect-fallback {
   position: sticky;
   top: 10px;
@@ -2435,6 +2531,16 @@ textarea:focus {
   .modal {
     padding: 20px 16px;
     border-radius: 16px;
+  }
+
+  .join-code-card {
+    align-content: center;
+    min-height: calc(100dvh - 28px);
+    gap: 20px;
+  }
+
+  .join-code-input {
+    min-height: 72px;
   }
 
   .modal-backdrop {

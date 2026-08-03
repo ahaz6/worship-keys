@@ -94,7 +94,7 @@ Die bevorzugte IP wird automatisch ermittelt. Physische Netzwerkadapter wie
 Ethernet und WLAN werden gegenüber VPN-, Bridge- und virtuellen Interfaces
 bevorzugt.
 
-## 6. Musiker über den QR-Code verbinden
+## 6. Musiker per QR-Code oder sechsstelligen Code verbinden
 
 1. **Show local join QR** wählen.
 2. Prüfen, dass die Adresse mit `192.168.`, `10.` oder `172.16–31.` beginnt.
@@ -104,7 +104,28 @@ bevorzugt.
 6. Ein berechtigter Leader kann Songs, Tonarten, Pads, Fades und Crescendo
    fernsteuern.
 
-Der lokale QR darf niemals auf `vercel.app` zeigen. Audio wird nicht über das
+Alternativ zeigt derselbe Dialog einen sechsstelligen **Session-Code**. Wer die
+separate iPhone-Webapp **Worship Join** bereits von der lokalen Church-Adresse
+installiert hat, öffnet sie und gibt nur diesen Code ein. Die Webapp fragt den
+laufenden Mac im selben Netz, erhält intern den langen Viewer-Link und öffnet
+danach dieselbe Join UI wie der QR-Code.
+
+So werden auf dem iPhone zwei feste Symbole angelegt:
+
+1. Die lokale Main UI in Safari öffnen und **Teilen → Zum Home-Bildschirm**
+   wählen. Dieses Symbol heißt **Worship Keys**.
+2. Danach einmal den lokalen QR-/Join-Link öffnen und dort erneut
+   **Teilen → Zum Home-Bildschirm** wählen. Dieses Symbol heißt
+   **Worship Join** und startet künftig immer mit der Code-Eingabe.
+
+Wichtig: Eine zuvor von `vercel.app` installierte Join-Webapp kann ohne Internet
+nicht automatisch erraten, welche lokale IP der Kirchen-Mac bekommen hat. Für
+den garantiert internetfreien Betrieb **Worship Join einmal aus der lokalen
+Church-Adresse installieren** oder weiterhin den lokalen QR-Code verwenden.
+
+Der lokale QR darf niemals auf `vercel.app` zeigen. Der Session-Code berechtigt
+nur zum Einstieg als Viewer; Leader-Steuerung braucht weiterhin den getrennten
+Leader-PIN. Audio wird nicht über das
 Netzwerk übertragen: Es bleibt ausschließlich auf dem Host-Mac. Über das lokale
 WebSocket werden nur kompakte Zustände und Steuerbefehle ausgetauscht.
 

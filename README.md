@@ -35,6 +35,10 @@ It is part of the Worship suite and shares its art direction with Worship Loops.
 - **Cloud Live session**: the Vercel host creates a QR link and musician devices
   receive Nashville, setlist, keyboard and leader controls through Supabase
   Realtime. Pad audio remains in the host browser; no local server is required.
+- **Two installable iPhone apps**: the main manifest always opens Worship Keys,
+  while QR/Join pages install as **Worship Join** and reopen on a focused
+  six-digit session-code screen. The short code discovers a viewer session;
+  leader access still requires the separate leader PIN.
 - **Offline Church Mode**: the installed macOS launcher starts the complete
   audio host without Terminal, detects the church-router address, verifies the
   saved setlist and all 12 pad keys, and creates a private local Join QR. Live
@@ -81,6 +85,24 @@ The command-line host remains available and prints its LAN address and PIN:
 
 Open the local address on the host machine. Musician iPads open the network
 address, or scan the QR code from **Show join code** on the host screen.
+
+### Zwei feste iPhone-Webapps installieren
+
+1. In Safari die Main UI öffnen und **Teilen → Zum Home-Bildschirm** wählen.
+   Dieses Symbol heißt **Worship Keys** und öffnet immer die Main UI.
+2. Einmal die Join-URL bzw. den QR-Code öffnen und dort erneut
+   **Teilen → Zum Home-Bildschirm** wählen. Dieses zweite Symbol heißt
+   **Worship Join** und öffnet immer die sechsstellige Code-Eingabe.
+3. Der Host zeigt den aktuellen Session-Code zusammen mit QR und Leader-PIN.
+   Der Session-Code erlaubt nur den Einstieg als Viewer; Host-Steuerung braucht
+   weiterhin den getrennten Leader-PIN.
+
+Cloud-Codes werden nur aufgelöst, solange der Vercel-Hosttab aktiv ist. Ein
+lokaler Offline-Code wird ausschließlich vom aktuell geöffneten Church-Mac im
+gleichen Netzwerk beantwortet. Eine aus Vercel installierte Webapp kann ohne
+Internet nicht selbstständig die unbekannte IP eines Church-Macs finden; für
+vollständig offline verwendete iPhones muss **Worship Join** deshalb einmal von
+der lokalen Church-Adresse installiert oder der lokale QR-Code geöffnet werden.
 
 For development use `npm run dev`. Host-only controls (the join code, the leader
 PIN, remote-control lock) are served to loopback callers only, so they never

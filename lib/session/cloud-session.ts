@@ -20,6 +20,7 @@ export type CloudBootstrap = {
   sessionId: string;
   viewerToken: string;
   leaderPin: string;
+  joinCode: string;
 };
 
 type ClientEnvelope = {
@@ -52,10 +53,14 @@ function randomPin(): string {
 }
 
 export function createCloudSessionBootstrap(): CloudBootstrap {
+  const leaderPin = randomPin();
+  let joinCode = randomPin();
+  while (joinCode === leaderPin) joinCode = randomPin();
   return {
     sessionId: randomToken(12),
     viewerToken: randomToken(24),
-    leaderPin: randomPin(),
+    leaderPin,
+    joinCode,
   };
 }
 
@@ -116,7 +121,7 @@ export class CloudSessionConnection {
 
   connect(viewerToken: string, deviceName: string, deviceToken?: string | null): void {
     this.disconnect();
-    this.bootstrap = { sessionId: viewerToken.slice(0, 24), viewerToken, leaderPin: "" };
+    this.bootstrap = { sessionId: viewerToken.slice(0, 24), viewerToken, leaderPin: "", joinCode: "" };
     this.role = null;
     this.deviceToken = deviceToken ?? null;
     this.openChannel(() => {

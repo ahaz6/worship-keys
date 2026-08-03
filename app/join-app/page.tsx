@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 
-import { JoinClient } from "./join-client";
+import { JoinCodeClient } from "./join-code-client";
 
 export const metadata: Metadata = {
-  title: "Join · Worship Keys",
+  title: "Worship Join",
+  description: "Join a live Worship Keys session with a six-digit code.",
   applicationName: "Worship Join",
   manifest: "/join-manifest.webmanifest",
   appleWebApp: {
@@ -14,10 +14,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default function JoinPage() {
-  return (
-    <Suspense fallback={<div className="centered-page" />}>
-      <JoinClient />
-    </Suspense>
-  );
+export default function JoinAppPage() {
+  return <JoinCodeClient />;
 }

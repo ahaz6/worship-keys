@@ -1,7 +1,16 @@
 import { expect, test } from "@playwright/test";
 
-test("ships only Sound Walls and provides header song controls", async ({ page }) => {
+test("ships only Sound Walls and provides header song controls", async ({ page, request }) => {
   await page.goto("/");
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute("href", "/manifest.webmanifest");
+  const joinManifest = await request.get("/join-manifest.webmanifest");
+  expect(joinManifest.ok()).toBe(true);
+  expect(await joinManifest.json()).toMatchObject({
+    id: "/worship-join",
+    name: "Worship Join",
+    start_url: "/join-app",
+    display: "standalone",
+  });
   await expect(page.getByRole("heading", { name: "Gathering" })).toBeVisible();
   await expect(page.getByText("OFFLINE CHURCH · LIVE", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Show local join QR", exact: true })).toBeVisible();

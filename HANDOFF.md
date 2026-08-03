@@ -178,6 +178,19 @@ leader-PIN HTTP exchange has exact-origin CORS/LNA headers for the production
 Vercel origin. Tokens are stored per LAN host so two churches cannot reuse each
 other's device identity accidentally.
 
+**Main and Join are distinct installable web apps.** The root manifest has the
+stable id `/worship-keys` and always starts at `/`. Both `/join` and the fixed
+`/join-app` entry page override it with the `/worship-join` manifest, whose
+start URL is the six-digit code screen. A Cloud Live host temporarily registers
+its code through a dedicated Supabase Broadcast lobby and returns the opaque
+viewer token only to a matching resolver. The local Node host resolves its own
+code at `/api/session/resolve-code`; nothing is persisted and restarting the
+host rotates the code. The code grants viewer discovery only. Leader control
+still requires the separate PIN, and host join locking remains authoritative.
+There is intentionally no claim of zero-configuration discovery from a
+Vercel-origin PWA to an unknown offline LAN IP: the local Join PWA or QR is the
+honest offline path.
+
 **Offline Church Mode is the recommended Sunday runtime.** `npm run
 church:install` creates `/Applications/Worship Keys Church.app` and
 `/Applications/Stop Worship Keys.app` with the original app icon. The first
@@ -295,7 +308,7 @@ the iPad layout, so tablet and desktop screens keep their established UI.
 `npm test` runs the Vitest unit and asset suites. `npm run test:e2e` exercises
 setlist workflows plus the live host → viewer → leader session in Chrome.
 
-The current verification baseline is **162 passing Vitest tests across 11 test
+The current verification baseline is **164 passing Vitest tests across 12 test
 files**, plus typecheck, ESLint, all **8 Playwright browser flows** (including a
 real two-profile Supabase Cloud Live session and an offline host/device request
 audit) and a successful Next production build. Dynamic routes include `/api/deploy-setlist`,
@@ -318,6 +331,8 @@ audit) and a successful Next production build. Dynamic routes include `/api/depl
   non-resetting partial settings and automation telemetry revisions.
 - `tests/lan-endpoint.test.ts` — private-IP allowlist, hostile/public endpoint
   rejection and deterministic cloud/local Join URL generation.
+- `tests/join-code.test.ts` — strict six-digit validation and numeric phone-input
+  normalisation.
 - `e2e/mobile.spec.ts` — 390 px host, viewer and leader layouts, touch-sized
   concert keys, hidden phone-only clutter, QR dialog stacking and overflow;
   the existing 820 px tablet layout is also visually checked before release.

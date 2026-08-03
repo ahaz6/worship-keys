@@ -57,6 +57,8 @@ export class SessionStore {
   readonly hostToken = randomToken(32);
   /** Embedded in the QR code; grants viewer access only. */
   readonly viewerToken = randomToken(18);
+  /** Short-lived discovery code; resolves to the viewer link only on this host. */
+  readonly joinCode: string;
 
   private leaderPin = generateLeaderPin();
   private leaderPinHash: HashedPin;
@@ -73,6 +75,9 @@ export class SessionStore {
     this.allowMultipleLeaders = options.allowMultipleLeaders ?? false;
     this.now = options.now ?? (() => Date.now());
     this.leaderPinHash = hashPin(this.leaderPin);
+    let joinCode = generateLeaderPin();
+    while (joinCode === this.leaderPin) joinCode = generateLeaderPin();
+    this.joinCode = joinCode;
     this.snapshot = createEmptySnapshot(this.sessionId, options.sessionName ?? "Sunday Morning");
   }
 
