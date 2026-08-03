@@ -27,7 +27,8 @@ npm run church:install
 
 Dadurch werden folgende Komponenten eingerichtet:
 
-- `~/Applications/Worship Keys Church.app`,
+- `/Applications/Worship Keys Church.app`,
+- `/Applications/Stop Worship Keys.app`,
 - der macOS-Hintergrunddienst
   `~/Library/LaunchAgents/app.worshipkeys.church.host.plist`,
 - das Protokoll unter
@@ -38,8 +39,9 @@ macOS den lokalen Server im Hintergrund und öffnet `http://localhost:3000` im
 Browser. Ein Terminalfenster ist dafür nicht erforderlich.
 
 Nach größeren Aktualisierungen von Worship Keys den Installationsbefehl erneut
-ausführen. Die App ist im persönlichen Programme-Ordner des Benutzers und nicht
-unter dem allgemeinen `/Applications` abgelegt.
+ausführen. Beide Apps liegen im allgemeinen macOS-Ordner **Programme**. Falls
+dieser nicht direkt beschreibbar ist, zeigt macOS einmalig die normale
+Administrator-Abfrage.
 
 ## 3. Setlist zu Hause vorbereiten
 
@@ -71,7 +73,7 @@ vollständig ohne Internet betrieben werden.
 
 ## 5. Worship Keys am Sonntag starten
 
-1. Im Finder den persönlichen Ordner **Programme** öffnen.
+1. Im Finder den allgemeinen Ordner **Programme** öffnen.
 2. **Worship Keys Church** doppelklicken.
 3. Beim ersten Start eingehende Netzwerkverbindungen für Node erlauben.
 4. Im Bereich **Offline Church Mode** auf **Check all offline pads** klicken.
@@ -115,10 +117,10 @@ WebSocket werden nur kompakte Zustände und Steuerbefehle ausgetauscht.
 
 Das Schließen des Browsertabs beendet den lokalen Hintergrunddienst nicht. Ein
 erneuter Doppelklick auf **Worship Keys Church** öffnet die laufende Oberfläche
-wieder. Spätestens beim Abmelden oder Herunterfahren des Macs wird der Dienst
-beendet.
+wieder. Zum Beenden **Stop Worship Keys** im Programme-Ordner doppelklicken.
+Die App beendet den Node-Prozess und gibt Port 3000 frei.
 
-Für einen manuellen Stopp kann technisch folgender Befehl verwendet werden:
+Alternativ kann der Dienst im Terminal beendet werden:
 
 ```bash
 launchctl kill SIGTERM gui/$(id -u)/app.worshipkeys.church.host
@@ -128,13 +130,12 @@ launchctl kill SIGTERM gui/$(id -u)/app.worshipkeys.church.host
 
 ### App wird nicht gefunden
 
-Sie liegt unter:
+Die beiden Apps liegen unter:
 
 ```text
-/Users/ahazsubramaniyam/Applications/Worship Keys Church.app
+/Applications/Worship Keys Church.app
+/Applications/Stop Worship Keys.app
 ```
-
-Dieser Ordner entspricht dem persönlichen Programme-Ordner des Benutzers.
 
 ### App reagiert beim Öffnen nicht
 

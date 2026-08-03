@@ -179,9 +179,11 @@ Vercel origin. Tokens are stored per LAN host so two churches cannot reuse each
 other's device identity accidentally.
 
 **Offline Church Mode is the recommended Sunday runtime.** `npm run
-church:install` creates `~/Applications/Worship Keys Church.app` with the
-original app icon. It launches the production host without a Terminal window,
-prefers a physical private interface over VPN/bridge interfaces, and writes its
+church:install` creates `/Applications/Worship Keys Church.app` and
+`/Applications/Stop Worship Keys.app` with the original app icon. The first
+launches the production host without a Terminal window; the second terminates
+the launchd process and frees port 3000. The host prefers a physical private
+interface over VPN/bridge interfaces, and writes its
 log to `~/Library/Logs/Worship Keys/church-host.log`. The host UI never renders
 the Vercel URL in this mode: its QR points directly at the selected RFC1918
 address. The readiness card verifies local hosting, a private router address, a

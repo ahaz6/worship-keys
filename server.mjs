@@ -216,5 +216,10 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => {
     sessionServer.close();
     server.close(() => process.exit(0));
+    // Browser keep-alive connections must not leave the launchd job hanging
+    // after the user opens "Stop Worship Keys". Upgraded session sockets are
+    // closed above; regular HTTP connections can be closed immediately.
+    server.closeAllConnections?.();
+    setTimeout(() => process.exit(0), 2_000).unref();
   });
 }

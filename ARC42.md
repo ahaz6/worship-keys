@@ -322,7 +322,8 @@ flowchart LR
 
 Installierte Pfade:
 
-- App: `~/Applications/Worship Keys Church.app`
+- Start-App: `/Applications/Worship Keys Church.app`
+- Stop-App: `/Applications/Stop Worship Keys.app`
 - LaunchAgent: `~/Library/LaunchAgents/app.worshipkeys.church.host.plist`
 - Log: `~/Library/Logs/Worship Keys/church-host.log`
 - Projekt und Build: aktuelles Repository mit `.next/BUILD_ID`
@@ -390,7 +391,7 @@ laufende Audio nicht beeinflussen.
 | ADR-07 | Sound Wall Pads als einziges Pack | Klare, konsistente Worship-Klangidentität. | Keine Auswahl alter Presets. |
 | ADR-08 | Playback-Rate bleibt 1.0 | Natürliche Tonhöhe und Loopdauer. | Motion entsteht durch Filter, Pan und Shimmer. |
 | ADR-09 | Getrennte Gain-Stufen | Fader und Transitionen beeinflussen sich nicht destruktiv. | Komplexerer Audiograph, aber vorhersagbares Verhalten. |
-| ADR-10 | launchd für den Church-Host | App reagiert sofort und Dienst überlebt den Launcher. | Installationsskript richtet einen Benutzer-LaunchAgent ein. |
+| ADR-10 | launchd für den Church-Host | Start-App reagiert sofort; Stop-App beendet Dienst und Port kontrolliert. | Apps liegen systemweit in `/Applications`, der Agent bleibt benutzerbezogen. |
 | ADR-11 | Host-Acknowledge vor Zustandsfortschritt | Join-UI darf keine nicht ausgeführte Audioaktion behaupten. | Kommandos besitzen Timeout und Ablehnungsfall. |
 
 ## 10. Qualitätsanforderungen

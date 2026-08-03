@@ -57,7 +57,9 @@ For Sunday offline use, install the one-click macOS launcher once:
 npm run church:install
 ```
 
-Then open **Worship Keys Church** from the current user's Applications folder.
+Then open **Worship Keys Church** from the system Applications folder. Use
+**Stop Worship Keys** from the same folder to stop the local host and free port
+3000.
 The host automatically chooses the best private Ethernet/Wi-Fi address and
 shows **READY · INTERNET NOT REQUIRED** after the local setlist and all pad keys
 have been checked. Full instructions are in `OFFLINE-CHURCH.md`.

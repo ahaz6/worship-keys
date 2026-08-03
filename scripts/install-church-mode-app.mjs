@@ -1,16 +1,27 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  W_OK,
+  accessSync,
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const applicationsDirectory = path.join(homedir(), "Applications");
-const appPath = path.join(applicationsDirectory, "Worship Keys Church.app");
-const contentsPath = path.join(appPath, "Contents");
-const macOSPath = path.join(contentsPath, "MacOS");
-const resourcesPath = path.join(contentsPath, "Resources");
-const executablePath = path.join(macOSPath, "Worship Keys Church");
+const systemApplicationsDirectory = "/Applications";
+const churchAppName = "Worship Keys Church.app";
+const stopAppName = "Stop Worship Keys.app";
+const churchAppTarget = path.join(systemApplicationsDirectory, churchAppName);
+const stopAppTarget = path.join(systemApplicationsDirectory, stopAppName);
+const oldUserChurchApp = path.join(homedir(), "Applications", churchAppName);
+const oldUserStopApp = path.join(homedir(), "Applications", stopAppName);
 const logDirectory = path.join(homedir(), "Library", "Logs", "Worship Keys");
 const logPath = path.join(logDirectory, "church-host.log");
 const launchAgentDirectory = path.join(homedir(), "Library", "LaunchAgents");
@@ -19,33 +30,47 @@ const launchAgentPath = path.join(launchAgentDirectory, `${launchAgentLabel}.pli
 const launchAgentTarget = `gui/${process.getuid()}/${launchAgentLabel}`;
 
 if (!existsSync(path.join(projectRoot, ".next", "BUILD_ID"))) {
-  throw new Error("A production build is required before installing the Church Mode app. Run npm run build first.");
+  throw new Error("Vor der Installation ist ein Produktions-Build erforderlich. Bitte zuerst npm run build ausführen.");
 }
 
 const shellQuote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
 const xmlEscape = (value) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+const appleScriptEscape = (value) => value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 
-rmSync(appPath, { recursive: true, force: true });
-mkdirSync(macOSPath, { recursive: true });
-mkdirSync(resourcesPath, { recursive: true });
+const stagingRoot = mkdtempSync(path.join(tmpdir(), "worship-keys-church-apps-"));
+const churchAppStaging = path.join(stagingRoot, churchAppName);
+const stopAppStaging = path.join(stagingRoot, stopAppName);
+
 mkdirSync(logDirectory, { recursive: true });
 mkdirSync(launchAgentDirectory, { recursive: true });
 
-const plist = `<?xml version="1.0" encoding="UTF-8"?>
+function createAppBundle({ appPath, displayName, executableName, identifier, executable }) {
+  const contentsPath = path.join(appPath, "Contents");
+  const macOSPath = path.join(contentsPath, "MacOS");
+  const resourcesPath = path.join(contentsPath, "Resources");
+  mkdirSync(macOSPath, { recursive: true });
+  mkdirSync(resourcesPath, { recursive: true });
+
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleDisplayName</key><string>Worship Keys Church</string>
-  <key>CFBundleExecutable</key><string>Worship Keys Church</string>
+  <key>CFBundleDisplayName</key><string>${xmlEscape(displayName)}</string>
+  <key>CFBundleExecutable</key><string>${xmlEscape(executableName)}</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
-  <key>CFBundleIdentifier</key><string>app.worshipkeys.church</string>
-  <key>CFBundleName</key><string>Worship Keys Church</string>
+  <key>CFBundleIdentifier</key><string>${xmlEscape(identifier)}</string>
+  <key>CFBundleName</key><string>${xmlEscape(displayName)}</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.0</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>1.1</string>
+  <key>CFBundleVersion</key><string>2</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>`;
-writeFileSync(path.join(contentsPath, "Info.plist"), plist);
+  writeFileSync(path.join(contentsPath, "Info.plist"), plist);
+  const executablePath = path.join(macOSPath, executableName);
+  writeFileSync(executablePath, executable);
+  chmodSync(executablePath, 0o755);
+  return resourcesPath;
+}
 
 const launcher = `#!/bin/zsh
 PROJECT_DIR=${shellQuote(projectRoot)}
@@ -60,7 +85,7 @@ if /usr/bin/curl --silent --fail --max-time 1 "$HEALTH_URL" >/dev/null 2>&1; the
 fi
 
 if [[ ! -f "$PROJECT_DIR/.next/BUILD_ID" ]]; then
-  /usr/bin/osascript -e 'display dialog "Worship Keys needs to be prepared once while online. Run npm run church:install in the project folder." buttons {"OK"} default button "OK" with icon caution'
+  /usr/bin/osascript -e 'display dialog "Worship Keys muss einmal im Projektordner vorbereitet werden. Bitte dort npm run church:install ausführen." buttons {"OK"} default button "OK" with icon caution'
   exit 1
 fi
 
@@ -73,11 +98,46 @@ for attempt in {1..80}; do
   /bin/sleep 0.25
 done
 
-/usr/bin/osascript -e 'display dialog "Worship Keys Church could not start. Check the church-host.log file in Library/Logs/Worship Keys." buttons {"OK"} default button "OK" with icon caution'
+/usr/bin/osascript -e 'display dialog "Worship Keys Church konnte nicht gestartet werden. Bitte die Datei church-host.log unter Library/Logs/Worship Keys prüfen." buttons {"OK"} default button "OK" with icon caution'
 exit 1
 `;
-writeFileSync(executablePath, launcher);
-chmodSync(executablePath, 0o755);
+
+const stopLauncher = `#!/bin/zsh
+LAUNCH_AGENT=${shellQuote(launchAgentTarget)}
+HEALTH_URL='http://127.0.0.1:3000/api/session/bootstrap'
+
+if ! /bin/launchctl print "$LAUNCH_AGENT" >/dev/null 2>&1; then
+  /usr/bin/osascript -e 'display notification "Der lokale Server ist bereits beendet." with title "Worship Keys"'
+  exit 0
+fi
+
+/bin/launchctl kill SIGTERM "$LAUNCH_AGENT" >/dev/null 2>&1 || true
+for attempt in {1..40}; do
+  if ! /usr/bin/curl --silent --fail --max-time 1 "$HEALTH_URL" >/dev/null 2>&1; then
+    /usr/bin/osascript -e 'display notification "Der lokale Server wurde beendet." with title "Worship Keys"'
+    exit 0
+  fi
+  /bin/sleep 0.1
+done
+
+/usr/bin/osascript -e 'display dialog "Der lokale Worship-Keys-Server konnte nicht vollständig beendet werden." buttons {"OK"} default button "OK" with icon caution'
+exit 1
+`;
+
+const churchResources = createAppBundle({
+  appPath: churchAppStaging,
+  displayName: "Worship Keys Church",
+  executableName: "Worship Keys Church",
+  identifier: "app.worshipkeys.church",
+  executable: launcher,
+});
+const stopResources = createAppBundle({
+  appPath: stopAppStaging,
+  displayName: "Stop Worship Keys",
+  executableName: "Stop Worship Keys",
+  identifier: "app.worshipkeys.church.stop",
+  executable: stopLauncher,
+});
 
 const launchAgentPlist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -103,14 +163,14 @@ writeFileSync(launchAgentPath, launchAgentPlist);
 try {
   execFileSync("/bin/launchctl", ["bootout", `gui/${process.getuid()}`, launchAgentPath], { stdio: "ignore" });
 } catch {
-  // The agent is not loaded on first install.
+  // Der Agent ist bei der ersten Installation noch nicht geladen.
 }
 execFileSync("/bin/launchctl", ["bootstrap", `gui/${process.getuid()}`, launchAgentPath]);
 
 const sourceIcon = path.join(projectRoot, "public", "worship-keys-icon.png");
 if (existsSync(sourceIcon)) {
-  const temporaryRoot = mkdtempSync(path.join(tmpdir(), "worship-keys-icon-"));
-  const iconsetPath = path.join(temporaryRoot, "AppIcon.iconset");
+  const iconsetPath = path.join(stagingRoot, "AppIcon.iconset");
+  const icnsPath = path.join(stagingRoot, "AppIcon.icns");
   mkdirSync(iconsetPath);
   const sizes = [
     [16, "icon_16x16.png"], [32, "icon_16x16@2x.png"],
@@ -123,19 +183,42 @@ if (existsSync(sourceIcon)) {
     for (const [size, name] of sizes) {
       execFileSync("/usr/bin/sips", ["-z", String(size), String(size), sourceIcon, "--out", path.join(iconsetPath, name)], { stdio: "ignore" });
     }
-    execFileSync("/usr/bin/iconutil", ["-c", "icns", iconsetPath, "-o", path.join(resourcesPath, "AppIcon.icns")]);
+    execFileSync("/usr/bin/iconutil", ["-c", "icns", iconsetPath, "-o", icnsPath]);
+    copyFileSync(icnsPath, path.join(churchResources, "AppIcon.icns"));
+    copyFileSync(icnsPath, path.join(stopResources, "AppIcon.icns"));
   } catch {
-    copyFileSync(sourceIcon, path.join(resourcesPath, "worship-keys-icon.png"));
-    console.warn("The macOS icon could not be generated; the original PNG was copied instead.");
-  } finally {
-    rmSync(temporaryRoot, { recursive: true, force: true });
+    copyFileSync(sourceIcon, path.join(churchResources, "AppIcon.png"));
+    copyFileSync(sourceIcon, path.join(stopResources, "AppIcon.png"));
+    console.warn("Das macOS-Icon konnte nicht als ICNS erzeugt werden; das originale PNG wurde verwendet.");
   }
 }
 
-try {
-  execFileSync("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", appPath], { stdio: "ignore" });
-} catch {
-  console.warn("The app was installed without an ad-hoc signature.");
+for (const appPath of [churchAppStaging, stopAppStaging]) {
+  try {
+    execFileSync("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", appPath], { stdio: "ignore" });
+  } catch {
+    console.warn(`${path.basename(appPath)} wurde ohne Ad-hoc-Signatur erstellt.`);
+  }
 }
 
-console.log(`Installed ${xmlEscape(appPath)}`);
+const installCommand = [
+  `/bin/rm -rf ${shellQuote(churchAppTarget)} ${shellQuote(stopAppTarget)}`,
+  `/usr/bin/ditto ${shellQuote(churchAppStaging)} ${shellQuote(churchAppTarget)}`,
+  `/usr/bin/ditto ${shellQuote(stopAppStaging)} ${shellQuote(stopAppTarget)}`,
+].join(" && ");
+
+try {
+  accessSync(systemApplicationsDirectory, W_OK);
+  execFileSync("/bin/zsh", ["-c", installCommand]);
+} catch {
+  const privilegedInstall = `do shell script "${appleScriptEscape(installCommand)}" with administrator privileges`;
+  execFileSync("/usr/bin/osascript", ["-e", privilegedInstall], { stdio: "inherit" });
+}
+
+// Exakte alte Benutzer-Bundles entfernen, damit Finder nicht zwei Versionen zeigt.
+rmSync(oldUserChurchApp, { recursive: true, force: true });
+rmSync(oldUserStopApp, { recursive: true, force: true });
+rmSync(stagingRoot, { recursive: true, force: true });
+
+console.log(`Installiert: ${churchAppTarget}`);
+console.log(`Installiert: ${stopAppTarget}`);
