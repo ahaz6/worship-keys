@@ -4,7 +4,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { WORSHIP_KEYS_ICON_DATA_URL } from "@/lib/brand/original-icon";
-import { DriveFolderPanel } from "@/components/setlist/drive-folder-panel";
+import { DeployToDriveButton } from "@/components/setlist/deploy-to-drive-button";
 import { SetlistRail } from "@/components/setlist/setlist-rail";
 import { SetlistTransfer } from "@/components/setlist/setlist-transfer";
 import { SongDialog } from "@/components/setlist/song-dialog";
@@ -66,7 +66,9 @@ function CloudAuth({ onNotice }: { onNotice: (message: string) => void }) {
         });
     setBusy(false);
     if (result.error) return onNotice(result.error.message);
-    if (mode === "signup" && !result.data.session) onNotice("Account created. Confirm the email, then sign in here.");
+    if (mode === "signup") {
+      onNotice(result.data.session ? "Account created. You are signed in." : "Account created. Sign in with your new password.");
+    }
   };
 
   return (
@@ -220,7 +222,7 @@ export function CloudPlanner() {
             onClick={() => {
               if (!window.confirm("Clear every song from this setlist? This cannot be undone.")) return;
               patchSetlist((current) => ({ ...current, songs: [], activeSongId: undefined }));
-              showNotice("Setlist cleared. The empty setlist is being saved to the cloud and Drive.");
+              showNotice("Setlist cleared. The empty setlist is being saved to the cloud.");
             }}
           >
             Clear setlist
@@ -238,7 +240,7 @@ export function CloudPlanner() {
           <div>
             <span className="eyebrow">Worship Keys · Cloud</span>
             <h1>{setlist.name}</h1>
-            <p>Prepare the set here. On Sunday, load the mirrored file on the church Mac and start the local QR session.</p>
+            <p>Prepare the set here, then deploy one current JSON file directly to Google Drive for Sunday.</p>
           </div>
           <span className="cloud-badge">Cloud planner</span>
         </header>
@@ -275,14 +277,24 @@ export function CloudPlanner() {
           </div>
           <div className="cloud-info-card">
             <span className="eyebrow">2 · Church handoff</span>
-            <h3>Mirror into Google Drive</h3>
-            <p>Select the local Google Drive folder once in Chrome. Every later change is written to the same offline-ready file.</p>
-            <DriveFolderPanel state={state} onImport={(next) => setState(next)} onNotice={showNotice} autoSave />
+            <h3>Deploy directly to Google Drive</h3>
+            <p>One click replaces the current Worship Keys JSON in your Drive folder. No synced desktop folder is needed.</p>
+            <div className="btn-row cloud-drive-actions">
+              <DeployToDriveButton state={state} accessToken={session.access_token} onNotice={showNotice} />
+              <a
+                className="btn drive-link"
+                href="https://drive.google.com/drive/folders/1pD8L0WbTM-i_HdhGT13vM3kbNDVWVcpB"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open Drive folder
+              </a>
+            </div>
           </div>
           <div className="cloud-info-card cloud-live-card">
             <span className="eyebrow">3 · Sunday live host</span>
             <h3>Open Worship Keys locally on the Mac</h3>
-            <p>Load the Drive file, enable audio, then show the join code. The QR points to the Mac&apos;s current LAN address—not to Vercel.</p>
+            <p>Open the deployed Drive JSON on the church Mac, enable audio, then show the join code. The QR still points to the Mac&apos;s local network address.</p>
             <div className="cloud-flow"><span>Drive file</span><b>→</b><span>Church Mac</span><b>→</b><span>Local QR</span></div>
           </div>
         </section>

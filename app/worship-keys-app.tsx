@@ -17,7 +17,6 @@ import { KeyRibbon } from "@/components/performance/key-ribbon";
 import { NowCard } from "@/components/performance/now-card";
 import { TransportDock } from "@/components/performance/transport-dock";
 import { HostPanel, type HostBootstrap } from "@/components/session/host-panel";
-import { DriveFolderPanel } from "@/components/setlist/drive-folder-panel";
 import { OpenDriveSetlistButton } from "@/components/setlist/open-drive-setlist-button";
 import { SetlistRail } from "@/components/setlist/setlist-rail";
 import { SongDialog } from "@/components/setlist/song-dialog";
@@ -932,14 +931,6 @@ export function WorshipKeysApp() {
         />
         <div className="rail-foot">
           <SetlistTransfer
-            state={createPersistedState(setlist, preferences)}
-            onImport={(state) => {
-              setSetlist(state.setlist);
-              setPreferences(state.preferences);
-            }}
-            onNotice={setStorageNotice}
-          />
-          <DriveFolderPanel
             state={createPersistedState(setlist, preferences)}
             onImport={(state) => {
               setSetlist(state.setlist);

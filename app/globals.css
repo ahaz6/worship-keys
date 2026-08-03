@@ -1921,15 +1921,10 @@ textarea:focus {
 .cloud-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; color: #9c92d9; }
 .cloud-flow span { padding: 8px 11px; border: 1px solid #39354e; border-radius: 8px; background: #15141d; color: var(--wk-text-soft); }
 
-.drive-sync-card { display: grid; gap: 12px; margin-top: 18px; }
-.drive-sync-card p { margin: 3px 0 0; font-size: 11px; }
-.drive-sync-card .btn-row { display: flex; flex-wrap: wrap; }
 .drive-link { display: inline-flex; align-items: center; text-decoration: none; }
-.drive-sync-card small { color: #bd9e69; }
-.drive-reconnect-link { width: max-content; padding: 0; border: 0; background: transparent; color: var(--wk-text-faint); font-size: 10px; text-decoration: underline; text-underline-offset: 3px; }
-.drive-reconnect-link:hover:not(:disabled) { color: var(--wk-text-soft); }
 .drive-open-button { border-color: #554d8b; color: #c8c0f7; }
-.rail-foot .drive-sync-card { padding-top: 12px; border-top: 1px solid var(--wk-line); }
+.cloud-drive-actions { display: flex; flex-wrap: wrap; margin-top: 18px; }
+.drive-deploy-button { min-width: 210px; }
 .cloud-rail-actions { display: grid; }
 
 @media (max-width: 1000px) {
