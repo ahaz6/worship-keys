@@ -86,9 +86,15 @@ export class SessionStore {
     return this.snapshot.revision;
   }
 
-  /** Applies a host-reported state change and bumps the revision. */
+  /** Applies host state and advances the semantic command revision when needed. */
   applyHostState(patch: Partial<LiveSessionSnapshot>): LiveSessionSnapshot {
     const transcript = patch.transcript ? patch.transcript.slice(-TRANSCRIPT_WINDOW) : this.snapshot.transcript;
+    const telemetryKeys = new Set<keyof LiveSessionSnapshot>(["padProgress", "crossfading", "crescendoActive"]);
+    const patchKeys = Object.keys(patch) as Array<keyof LiveSessionSnapshot>;
+    // Animation frames do not change command semantics. Keeping their revision
+    // stable prevents a leader click from becoming stale merely because a fade
+    // progress packet arrived at the same moment.
+    const telemetryOnly = patchKeys.length > 0 && patchKeys.every((key) => telemetryKeys.has(key));
     this.snapshot = {
       ...this.snapshot,
       ...patch,
@@ -97,7 +103,7 @@ export class SessionStore {
       transcript,
       remoteControlLocked: this.snapshot.remoteControlLocked,
       joinsLocked: this.snapshot.joinsLocked,
-      revision: this.snapshot.revision + 1,
+      revision: this.snapshot.revision + (telemetryOnly ? 0 : 1),
       serverTime: this.now(),
     };
     return this.snapshot;

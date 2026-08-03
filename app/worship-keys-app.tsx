@@ -101,9 +101,10 @@ export function WorshipKeysApp() {
   // Mirror of the transition context for callbacks that must not re-create
   // themselves on every state change (keyboard shortcuts, session commands).
   const transitionRef = useRef(transition);
-  const padSettingsSongIdRef = useRef<string | null>(null);
   const padSettingsRef = useRef(padSettings);
   const spatialRampTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const spatialRampVersionRef = useRef(0);
+  const manualSpatialOverrideRef = useRef(false);
   const crescendoReturnPointRef = useRef<{ brightness: number; width: number } | null>(null);
   useEffect(() => {
     transitionRef.current = transition;
@@ -166,6 +167,21 @@ export function WorshipKeysApp() {
 
   const applyPadSettings = useCallback(
     (patch: Partial<PadSettings>) => {
+      // A manual spatial edit owns Brightness/Width immediately. In particular,
+      // it must cancel a still-running Crescendo return timer; otherwise that
+      // old timer can overwrite the new XY position when an unrelated volume
+      // or timing snapshot causes the Join UI to render.
+      if ((patch.brightness != null || patch.width != null) && spatialRampTimerRef.current) {
+        manualSpatialOverrideRef.current = true;
+        spatialRampVersionRef.current += 1;
+        clearInterval(spatialRampTimerRef.current);
+        spatialRampTimerRef.current = null;
+      } else if (patch.brightness != null || patch.width != null) {
+        manualSpatialOverrideRef.current = true;
+        // Invalidate a callback that was already queued just before its timer
+        // was cleared and is waiting on the JavaScript event loop.
+        spatialRampVersionRef.current += 1;
+      }
       padSettingsRef.current = { ...padSettingsRef.current, ...patch };
       setPadSettings((current) => ({ ...current, ...patch }));
       if (patch.mainVolume != null && !muted) pads.engine.setMainVolume(patch.mainVolume);
@@ -176,23 +192,14 @@ export function WorshipKeysApp() {
       // Motion is intentionally not performance-adjustable: keep its subtle,
       // tempo-synchronised breathing fixed on the warm Slow setting.
       pads.engine.setMotion(PAD_DEFAULTS.motion);
-      if (song) {
-        const songPatch: Partial<Song> = {};
-        if (patch.mainVolume != null) songPatch.mainVolume = patch.mainVolume;
-        if (patch.fadeInSeconds != null) songPatch.fadeInSeconds = patch.fadeInSeconds;
-        if (patch.fadeOutSeconds != null) songPatch.fadeOutSeconds = patch.fadeOutSeconds;
-        if (patch.crossfadeSeconds != null) songPatch.crossfadeSeconds = patch.crossfadeSeconds;
-        if (Object.keys(songPatch).length > 0) {
-          setSetlist((setlistState) => updateSong(setlistState, song.id, songPatch));
-        }
-      }
     },
-    [muted, pads.engine, song],
+    [muted, pads.engine],
   );
 
-  // A song owns its pad choice and optional sound settings. Loading or
-  // selecting it must therefore activate those values, not merely change the
-  // title and key on screen.
+  // The Sound Wall panel is a single live mixer for the whole service. Songs
+  // may change key and tempo, but never rewrite volume, tone, width or timing.
+  // This keeps the audible bus and both local/remote controls completely
+  // stationary during a song crossfade.
   const availablePadPresets = pads.presets;
   const activePadPresetId = pads.presetId;
   const setActivePadPresetId = pads.setPresetId;
@@ -209,37 +216,7 @@ export function WorshipKeysApp() {
       setSetlist((current) => updateSong(current, song.id, { padPresetId: selected.id }));
     }
 
-    // Performance controls reset only when another song actually becomes
-    // active. Unrelated song edits and live XY movements stay uninterrupted.
-    if (padSettingsSongIdRef.current === song.id) return;
-    padSettingsSongIdRef.current = song.id;
-
-    const next: PadSettings = {
-      ...PAD_DEFAULTS,
-      mainVolume: song.mainVolume ?? PAD_DEFAULTS.mainVolume,
-      // Shimmer is one uninterrupted live effect across the whole setlist.
-      // A song change may move the pad key, but never this effect amount.
-      shimmer: padSettingsRef.current.shimmer,
-      tone: PAD_DEFAULTS.tone,
-      brightness: PAD_DEFAULTS.brightness,
-      width: PAD_DEFAULTS.width,
-      motion: PAD_DEFAULTS.motion,
-      fadeInSeconds: song.fadeInSeconds ?? PAD_DEFAULTS.fadeInSeconds,
-      fadeOutSeconds: song.fadeOutSeconds ?? PAD_DEFAULTS.fadeOutSeconds,
-      crossfadeSeconds: song.crossfadeSeconds ?? PAD_DEFAULTS.crossfadeSeconds,
-    };
-    // Song identity is the synchronization boundary; this does not run for
-    // ordinary engine snapshots or slider renders.
-    setPadSettings(next);
-    if (audioStarted) {
-      pads.engine.setMainVolume(muted ? 0 : next.mainVolume);
-      pads.engine.setShimmerLevel(next.shimmer);
-      pads.engine.setTone(next.tone);
-      pads.engine.setBrightness(next.brightness);
-      pads.engine.setWidth(next.width);
-      pads.engine.setMotion(PAD_DEFAULTS.motion);
-    }
-  }, [activePadPresetId, audioStarted, availablePadPresets, muted, pads.engine, setActivePadPresetId, song]);
+  }, [activePadPresetId, availablePadPresets, setActivePadPresetId, song]);
 
   const toggleMute = useCallback(() => {
     setMuted((current) => {
@@ -369,11 +346,13 @@ export function WorshipKeysApp() {
   const selectSongWithPadTransition = useCallback(
     async (target: Song): Promise<boolean> => {
       if (target.id === song?.id) return true;
+      // Never collapse two running equal-power curves into each other. The
+      // current transition finishes before another song navigation is accepted.
+      if (transitionRef.current.state === "transitioning") return false;
       const targetTonic = target.concertKey as PitchClass;
       const padIsRunning = pads.engine.snapshot().state !== "stopped";
-      const keyChanges = targetTonic !== concertKey;
 
-      if (padIsRunning && keyChanges) {
+      if (padIsRunning) {
         const startedAt = performance.now();
         // Resolve the incoming pad from the destination song's tempo without
         // replacing the outgoing voice first. This prevents two competing
@@ -391,7 +370,10 @@ export function WorshipKeysApp() {
             padSettings.crossfadeSeconds,
           ),
         );
-        const result = await pads.engine.crossfadeTo(targetTonic, padSettings.crossfadeSeconds);
+        // A song boundary always gets a fresh equal-power crossfade. This also
+        // applies when both songs share a key, so tempo-tier and loop changes
+        // never jump abruptly and remote navigation matches the main UI.
+        const result = await pads.engine.crossfadeTo(targetTonic, padSettings.crossfadeSeconds, true);
         if (!result.ok) {
           pads.engine.setTempo(
             song?.bpm ?? DEFAULT_PAD_TEMPO_BPM,
@@ -416,7 +398,7 @@ export function WorshipKeysApp() {
       setSetlist((current) => selectSong(current, target.id));
       return true;
     },
-    [concertKey, padSettings.crossfadeSeconds, pads.engine, song],
+    [padSettings.crossfadeSeconds, pads.engine, song],
   );
 
   const prepareKey = useCallback(
@@ -447,7 +429,12 @@ export function WorshipKeysApp() {
 
   const rampSpatialControls = useCallback(
     (targetBrightness: number, targetWidth: number, durationSeconds: number) => {
+      // A direct XY edit wins over a delayed Crescendo release command. A new
+      // explicit Crescendo clears this guard before requesting its own ramp.
+      if (manualSpatialOverrideRef.current) return;
       if (spatialRampTimerRef.current) clearInterval(spatialRampTimerRef.current);
+      const rampVersion = spatialRampVersionRef.current + 1;
+      spatialRampVersionRef.current = rampVersion;
       const fromBrightness = padSettingsRef.current.brightness;
       const fromWidth = padSettingsRef.current.width;
       const durationMs = Math.max(50, durationSeconds * 1000);
@@ -457,7 +444,11 @@ export function WorshipKeysApp() {
       // mirrors progress and never reschedules audio automation.
       pads.engine.rampBrightness(targetBrightness, durationSeconds);
       pads.engine.rampWidth(targetWidth, durationSeconds);
-      spatialRampTimerRef.current = setInterval(() => {
+      const timer = setInterval(() => {
+        if (spatialRampVersionRef.current !== rampVersion) {
+          clearInterval(timer);
+          return;
+        }
         const progress = Math.min(1, (performance.now() - startedAt) / durationMs);
         const patch = {
           brightness: Math.round(fromBrightness + (targetBrightness - fromBrightness) * progress),
@@ -465,11 +456,12 @@ export function WorshipKeysApp() {
         };
         padSettingsRef.current = { ...padSettingsRef.current, ...patch };
         setPadSettings((current) => ({ ...current, ...patch }));
-        if (progress >= 1 && spatialRampTimerRef.current) {
-          clearInterval(spatialRampTimerRef.current);
-          spatialRampTimerRef.current = null;
+        if (progress >= 1) {
+          clearInterval(timer);
+          if (spatialRampTimerRef.current === timer) spatialRampTimerRef.current = null;
         }
       }, 100);
+      spatialRampTimerRef.current = timer;
     },
     [pads.engine],
   );
@@ -503,6 +495,7 @@ export function WorshipKeysApp() {
       brightness: padSettingsRef.current.brightness,
       width: padSettingsRef.current.width,
     };
+    manualSpatialOverrideRef.current = false;
     pads.engine.startCrescendo(padSettings.crescendoSeconds);
     rampSpatialControls(100, 100, padSettings.crescendoSeconds);
     setTransition((current) => startCrescendo(current, performance.now(), padSettings.crescendoSeconds));
@@ -767,6 +760,7 @@ export function WorshipKeysApp() {
 
   // Publish the real state to the session, throttled so older iPads stay calm.
   const publishedRef = useRef<string>("");
+  const publishedTelemetryRef = useRef<string>("");
   const sessionRole = session.role;
   useEffect(() => {
     if (sessionRole !== "host") return;
@@ -831,6 +825,25 @@ export function WorshipKeysApp() {
     transition.target,
     voice.segments,
   ]);
+
+  // The audio hook renders at display refresh rate. Quantising to two-percent
+  // steps keeps the Join bar visually identical to the host while avoiding a
+  // full 60 WebSocket packets per second on the church LAN.
+  const sessionPadProgress = Math.round((pads.snapshot?.progress ?? 0) * 50) / 50;
+  const sessionCrossfading = pads.snapshot?.crossfading ?? false;
+  const sessionCrescendoActive = pads.snapshot?.crescendoActive ?? false;
+  useEffect(() => {
+    if (sessionRole !== "host") return;
+    const telemetry = {
+      padProgress: sessionPadProgress,
+      crossfading: sessionCrossfading,
+      crescendoActive: sessionCrescendoActive,
+    };
+    const fingerprint = JSON.stringify(telemetry);
+    if (fingerprint === publishedTelemetryRef.current) return;
+    publishedTelemetryRef.current = fingerprint;
+    sendHostState(telemetry);
+  }, [sendHostState, sessionCrescendoActive, sessionCrossfading, sessionPadProgress, sessionRole]);
 
   /* ----------------------------------------------------- keyboard shortcuts */
 
@@ -990,7 +1003,7 @@ export function WorshipKeysApp() {
             <button
               type="button"
               className="btn tone-quiet"
-              disabled={!previousSong}
+              disabled={!previousSong || transition.state === "transitioning"}
               onClick={() => previousSong && void selectSongWithPadTransition(previousSong)}
             >
               ← Previous song
@@ -998,7 +1011,7 @@ export function WorshipKeysApp() {
             <button
               type="button"
               className="btn tone-quiet"
-              disabled={!nextSong}
+              disabled={!nextSong || transition.state === "transitioning"}
               onClick={() => nextSong && void selectSongWithPadTransition(nextSong)}
             >
               Next song →
@@ -1261,6 +1274,7 @@ export function WorshipKeysApp() {
           }
           onApproveLeader={(deviceId, approved) => session.sendHostCommand({ type: "set-leader", deviceId, approved })}
           onRevokeDevice={(deviceId) => session.sendHostCommand({ type: "revoke-device", deviceId })}
+          onShowJoin={() => void startAudio()}
           onRotatePin={() => {
             void fetch("/api/session/pin", { method: "POST" })
               .then((response) => response.json())

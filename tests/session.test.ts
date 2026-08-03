@@ -9,7 +9,7 @@ import {
   verifyPin,
 } from "@/lib/session/authorization";
 import { SessionStore } from "@/lib/session/session-store";
-import { TRANSCRIPT_WINDOW, clientMessageSchema, snapshotSchema } from "@/lib/session/protocol";
+import { TRANSCRIPT_WINDOW, clientMessageSchema, leaderCommandSchema, snapshotSchema } from "@/lib/session/protocol";
 
 function onlineStore(options?: ConstructorParameters<typeof SessionStore>[0]) {
   const store = new SessionStore(options);
@@ -293,6 +293,17 @@ describe("snapshot", () => {
     expect(snapshotSchema.safeParse(store.getSnapshot()).success).toBe(true);
   });
 
+  it("broadcasts pad automation telemetry without invalidating leader commands", () => {
+    const store = new SessionStore();
+    const before = store.revision;
+    store.applyHostState({ padProgress: 0.48, crossfading: true, crescendoActive: false });
+    expect(store.revision).toBe(before);
+    expect(store.getSnapshot()).toMatchObject({ padProgress: 0.48, crossfading: true, crescendoActive: false });
+
+    store.applyHostState({ padState: "fading-in" });
+    expect(store.revision).toBe(before + 1);
+  });
+
   it("does not leak device tokens in the device list", () => {
     const store = onlineStore();
     joinViewer(store);
@@ -303,6 +314,28 @@ describe("snapshot", () => {
 });
 
 describe("wire validation", () => {
+  it("does not inject spatial defaults into an unrelated pad setting patch", () => {
+    const parsed = leaderCommandSchema.parse({
+      type: "set-pad-settings",
+      patch: { mainVolume: 81 },
+    });
+    expect(parsed).toEqual({ type: "set-pad-settings", patch: { mainVolume: 81 } });
+    if (parsed.type !== "set-pad-settings") throw new Error("Expected a pad settings command.");
+    expect(parsed.patch).not.toHaveProperty("brightness");
+    expect(parsed.patch).not.toHaveProperty("width");
+  });
+
+  it("does not clear held audio automation in an unrelated host state patch", () => {
+    const parsed = clientMessageSchema.parse({
+      type: "host-state",
+      patch: { muted: true },
+    });
+    if (parsed.type !== "host-state") throw new Error("Expected a host state message.");
+    expect(parsed.patch).not.toHaveProperty("crescendoActive");
+    expect(parsed.patch).not.toHaveProperty("crossfading");
+    expect(parsed.patch).not.toHaveProperty("padProgress");
+  });
+
   it("accepts a well formed command message", () => {
     const message = {
       type: "command",

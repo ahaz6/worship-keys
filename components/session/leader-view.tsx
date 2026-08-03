@@ -58,6 +58,9 @@ export function LeaderView({
 }) {
   const locked = snapshot?.remoteControlLocked ?? false;
   const playing = snapshot?.padState !== "stopped";
+  const fadingIn = snapshot?.padState === "fading-in";
+  const fadingOut = snapshot?.padState === "fading-out";
+  const automationProgress = Math.round((snapshot?.padProgress ?? 0) * 100);
   // Every key is offered: the host holds the pads and knows what is decoded.
   const allKeys = new Set<PitchClass>(PITCH_CLASSES);
   const mode: Mode = snapshot?.mode ?? "major";
@@ -78,29 +81,33 @@ export function LeaderView({
         <div className="leader-top-transport" aria-label="Pad transport">
           <button
             type="button"
-            className="transport-btn leader-top-transport-button"
+            className={`transport-btn leader-top-transport-button${fadingIn ? " is-running" : ""}`}
             disabled={locked || pendingCommand}
             onClick={() => onCommand({ type: "fade-in" })}
+            aria-label={fadingIn ? "Fading in" : "Fade in"}
           >
+            {fadingIn ? <span className="progress" style={{ width: `${automationProgress}%` }} /> : null}
             <span className="arrow" aria-hidden="true">▲</span>
-            Fade in
+            {fadingIn ? "Fading in" : "Fade in"}
           </button>
           <button
             type="button"
-            className="transport-btn leader-top-transport-button"
+            className={`transport-btn leader-top-transport-button${fadingOut ? " is-running" : ""}`}
             disabled={locked || pendingCommand || !playing}
             onClick={() => onCommand({ type: "fade-out" })}
+            aria-label={fadingOut ? "Fading out" : "Fade out"}
           >
+            {fadingOut ? <span className="progress" style={{ width: `${automationProgress}%` }} /> : null}
             <span className="arrow" aria-hidden="true">▼</span>
-            Fade out
+            {fadingOut ? "Fading out" : "Fade out"}
           </button>
           <button
             type="button"
-            className="transport-btn leader-top-transport-button"
+            className={`transport-btn leader-top-transport-button${snapshot?.crescendoActive ? " is-running" : ""}`}
             disabled={locked || pendingCommand || !playing}
             onClick={() => onCommand({ type: "crescendo" })}
           >
-            {snapshot?.transitionState === "crescendo" ? "Release crescendo" : "Crescendo"}
+            {snapshot?.crescendoActive ? "Release Crescendo" : "Crescendo"}
           </button>
         </div>
         <div className="btn-row">
@@ -145,7 +152,7 @@ export function LeaderView({
               type="button"
               className="leader-song-arrow"
               aria-label={previousSong ? `Previous song: ${previousSong.title}` : "Previous song"}
-              disabled={locked || pendingCommand || !previousSong}
+              disabled={locked || pendingCommand || snapshot?.transitionState === "transitioning" || !previousSong}
               onClick={() => onCommand({ type: "previous-song" })}
             >
               ←
@@ -173,7 +180,7 @@ export function LeaderView({
               type="button"
               className="leader-song-arrow"
               aria-label={nextSong ? `Next song: ${nextSong.title}` : "Next song"}
-              disabled={locked || pendingCommand || !nextSong}
+              disabled={locked || pendingCommand || snapshot?.transitionState === "transitioning" || !nextSong}
               onClick={() => onCommand({ type: "next-song" })}
             >
               →
@@ -184,9 +191,14 @@ export function LeaderView({
           {snapshot ? `${snapshot.concertKey} · ${snapshot.timeSignature}` : ""}
         </div>
         {snapshot?.preparedKey ? (
-          <div className="live-prepared">
-            Prepared: {snapshot.preparedKey}
-            {snapshot.transitionState === "transitioning" ? " · Fading in" : ""}
+          <div className={`live-prepared${snapshot.crossfading ? " is-running" : ""}`}>
+            {snapshot.crossfading ? (
+              <span className="leader-transition-progress" style={{ width: `${automationProgress}%` }} />
+            ) : null}
+            <span className="leader-transition-copy">
+              Prepared: {snapshot.preparedKey}
+              {snapshot.crossfading ? ` · Crossfading ${automationProgress}%` : ""}
+            </span>
           </div>
         ) : null}
       </div>
@@ -359,32 +371,21 @@ function LeaderPadControls({
   const sendTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tempoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queuedBpm = useRef(bpm);
-  const desiredPatch = useRef<{ patch: Partial<LivePadSettings>; changedAt: number }>({
-    patch: {},
-    changedAt: 0,
-  });
+  const desiredPatch = useRef<Partial<LivePadSettings>>({});
   const desiredBpm = useRef<{ value: number | null; changedAt: number }>({ value: null, changedAt: 0 });
 
   useEffect(() => {
-    const pending = desiredPatch.current.patch;
+    const pending = desiredPatch.current;
     const pendingEntries = Object.entries(pending) as Array<
       [keyof LivePadSettings, LivePadSettings[keyof LivePadSettings]]
     >;
     const stillPending = Object.fromEntries(
       pendingEntries.filter(([key, value]) => snapshot.padSettings[key] !== value),
     ) as Partial<LivePadSettings>;
-    const expired = Date.now() - desiredPatch.current.changedAt > 2_000;
-
-    if (expired) {
-      desiredPatch.current = { patch: {}, changedAt: 0 };
-      setSettings(snapshot.padSettings);
-      return;
-    }
-
-    // Keep only values the host has not acknowledged yet. This prevents an
-    // older snapshot from making a dragged fader jump backwards, while host
-    // automation (for example Crescendo) remains visible immediately.
-    desiredPatch.current.patch = stillPending;
+    // Keep each local value until the host snapshot contains that exact value.
+    // A fixed timeout caused unrelated slider packets to expose an older host
+    // XY value and made the Brightness/Width handle visibly jump.
+    desiredPatch.current = stillPending;
     setSettings({ ...snapshot.padSettings, ...stillPending });
   }, [snapshot.padSettings]);
 
@@ -408,10 +409,7 @@ function LeaderPadControls({
   );
 
   const change = (patch: Partial<LivePadSettings>) => {
-    desiredPatch.current = {
-      patch: { ...desiredPatch.current.patch, ...patch },
-      changedAt: Date.now(),
-    };
+    desiredPatch.current = { ...desiredPatch.current, ...patch };
     setSettings((current) => ({ ...current, ...patch }));
     queuedPatch.current = { ...queuedPatch.current, ...patch };
     if (sendTimer.current) return;

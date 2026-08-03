@@ -140,6 +140,19 @@ The local API forwards it server-to-server; it is never sent to the browser.
 Production rejects unauthenticated reads. Signed-in, allowlisted Supabase users
 remain a supported fallback.
 
+**The Sound Wall mixer is service-global, not song-owned.** Song changes update
+the key and tempo, but they do not reset main volume, tone, shimmer, brightness,
+stereo width or fade timings. The host and Join Leader therefore see one stable
+live mixer for the whole setlist. Song changes always use an equal-power
+crossfade, including two adjacent songs that happen to use the same pad asset.
+
+**Join automation telemetry is deliberately non-semantic.** Fade progress,
+crossfade progress and the held Crescendo state are broadcast by the host, but
+those animation frames do not advance the command revision. Unrelated partial
+state messages also do not inject schema defaults. This prevents valid leader
+commands from becoming stale and prevents a held Crescendo or spatial XY value
+from being reset by another fader packet.
+
 ## 4. Verified behaviour
 
 Exercised in a production build in a real browser, not only in unit tests:
@@ -158,6 +171,14 @@ Exercised in a production build in a real browser, not only in unit tests:
   leader; the host panel then shows `Remove leader` and `Revoke`.
 - A leader `Fade in` and a leader `Prepare D` both reach the host, change real
   audio, and come back as a confirmed snapshot.
+- The Join Leader transport mirrors the host's fade-in/fade-out progress bars,
+  shows live song-crossfade progress and keeps Crescendo held at its peak until
+  the same button is pressed as `Release Crescendo`.
+- Moving Main Volume or any fade-time control on Join does not move the
+  Brightness/Stereo Width XY surface. A manual spatial edit also cancels any
+  stale Crescendo-return animation before it can overwrite that position.
+- Previous/next song from Join performs the same smooth equal-power crossfade
+  as the main host UI while all Sound Wall mixer values remain stationary.
 - Desktop 1440×900, tablet landscape 1024×768 and tablet portrait 768×1024 were
   reviewed; the portrait rail collapses to a compact band so the performance
   stage stays above the fold.
@@ -170,7 +191,7 @@ Exercised in a production build in a real browser, not only in unit tests:
 - The stable Vercel production URL is
   <https://worship-keys-psi.vercel.app>.
 
-Two real bugs were found this way and fixed:
+Five real bugs were found this way and fixed:
 
 1. A reversed fade-out left its completion timer running, which later told the
    transition machine the pad had stopped while it was still playing. The timer
@@ -179,15 +200,26 @@ Two real bugs were found this way and fixed:
    cleanup removed the handler in the same commit that delivered an inbound
    command — every leader command timed out. It is now registered once behind a
    ref.
+3. Zod defaults on partial session patches silently supplied Brightness, Width
+   and automation values that were absent from the packet. Patch schemas now
+   preserve true partial-update semantics; full snapshots still provide all
+   required values explicitly.
+4. Song selection re-applied song-owned mixer settings and made the Pad Sound
+   panel jump. The live mixer is now service-global and remains unchanged
+   across setlist navigation.
+5. Same-key adjacent songs skipped the pad transition because they shared an
+   asset URL. Song navigation now requests a deliberate same-asset restart and
+   crossfades the two independent voices.
 
 ## 5. Testing
 
 `npm test` runs the Vitest unit and asset suites. `npm run test:e2e` exercises
-song-owned preset activation/persistence and setlist export/import in Chrome.
+setlist workflows plus the live host → viewer → leader session in Chrome.
 
-The current verification baseline is **144 passing Vitest tests across 9 test
-files**, plus typecheck, ESLint and a successful Next production build. Dynamic
-routes include `/api/deploy-setlist` and `/api/open-setlist-from-drive`.
+The current verification baseline is **147 passing Vitest tests across 9 test
+files**, plus typecheck, ESLint, the live-session Playwright test and a
+successful Next production build. Dynamic routes include
+`/api/deploy-setlist` and `/api/open-setlist-from-drive`.
 
 - `tests/nashville.test.ts` — every mandatory case from spec 12.4, all 12 roots
   × major/minor, all 12 keys × diatonic degrees in both modes, borrowed chords,
@@ -202,7 +234,8 @@ routes include `/api/deploy-setlist` and `/api/open-setlist-from-drive`.
 - `tests/setlist.test.ts` — add never overwrites, duplicate/move/remove,
   time-signature maths by denominator, persistence and schema migration.
 - `tests/session.test.ts` — PIN hashing, loopback detection, role permissions,
-  join and rejoin, leader handover, revisions, idempotency, snapshot hygiene.
+  join and rejoin, leader handover, revisions, idempotency, snapshot hygiene,
+  non-resetting partial settings and automation telemetry revisions.
 
 ## 6. Honest limits
 
@@ -271,8 +304,8 @@ Spec section 27 lists these; the safe defaults are what shipped:
 
 - Repository: <https://github.com/ahaz6/worship-keys> (private)
 - Branch: `main`
-- Feature baseline before this handoff update: `aa993c6`
-  (`Pair church host for Drive reads`).
+- Feature baseline before this handoff update: `9bd8666`
+  (`Update handoff for cloud Drive workflow`).
 - Relevant Drive/cloud commits:
   - `e98f92c` — secure Google Drive setlist deployment
   - `1fd78fc` — one-click Drive setlist import

@@ -34,6 +34,7 @@ export function HostPanel({
   onApproveLeader,
   onRevokeDevice,
   onRotatePin,
+  onShowJoin,
 }: {
   bootstrap: HostBootstrap | null;
   bootstrapError: string | null;
@@ -46,6 +47,7 @@ export function HostPanel({
   onApproveLeader: (deviceId: string, approved: boolean) => void;
   onRevokeDevice: (deviceId: string) => void;
   onRotatePin: () => void;
+  onShowJoin?: () => void;
 }) {
   const [joinOpen, setJoinOpen] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
@@ -53,6 +55,9 @@ export function HostPanel({
 
   const openAndCopyJoinLink = async () => {
     if (!bootstrap) return;
+    // This click is a trusted host gesture, so it is the safest moment to
+    // unlock Web Audio before a remote Leader can request a fade.
+    onShowJoin?.();
     setJoinOpen(true);
     try {
       if (navigator.clipboard?.writeText) {

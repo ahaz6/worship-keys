@@ -582,6 +582,7 @@ export class PadEngine {
   async crossfadeTo(
     pitchClass: PitchClass,
     seconds: number = PAD_LIMITS.crossfadeSeconds.default,
+    restartSameAsset = false,
   ): Promise<AudioActionResult> {
     const context = await this.initialise();
     const asset = this.assetFor(pitchClass);
@@ -592,7 +593,12 @@ export class PadEngine {
     if (!this.currentVoice) {
       return this.fadeIn(pitchClass, { durationSeconds: PAD_LIMITS.fadeSeconds.default });
     }
-    if (this.currentVoice.pitchClass === pitchClass && this.currentVoice.assetUrl === asset.url && !this.incomingVoice) {
+    if (
+      !restartSameAsset &&
+      this.currentVoice.pitchClass === pitchClass &&
+      this.currentVoice.assetUrl === asset.url &&
+      !this.incomingVoice
+    ) {
       return { ok: true };
     }
 
