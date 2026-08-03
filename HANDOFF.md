@@ -127,6 +127,12 @@ authenticated planner remains at `/cloud`. The church Mac still runs
 `server.mjs` locally when a shared QR/leader session is needed, because Vercel
 does not host that long-lived in-memory WebSocket session.
 
+**Prepared pad loops belong in the Vercel artifact.** `.vercelignore` excludes
+the owner-supplied source recordings but deliberately includes `public/pads/`.
+Excluding that directory leaves a UI that builds successfully while every WAV
+returns 404, so production verification must always request at least one real
+pad URL and complete a 12-key preload.
+
 **Google Drive has one canonical handoff file.** `Deploy to Google Drive`
 updates the existing file `Worship Keys Current.worship-keys.json`; it does not
 create timestamped copies. The service account has writer access to that file

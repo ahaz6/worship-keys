@@ -1,7 +1,6 @@
-# The Vercel deployment is the cloud setlist planner. Live pad audio remains on
-# the church Mac and must not be uploaded to the public cloud deployment.
+# Original source recordings stay local. The prepared web loops under
+# public/pads are intentionally deployed for the public performance app.
 Ambient Pads/
-public/pads/
 
 # Local build and test artefacts.
 .next/
