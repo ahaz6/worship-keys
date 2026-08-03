@@ -11,6 +11,7 @@ const contentsPath = path.join(appPath, "Contents");
 const macOSPath = path.join(contentsPath, "MacOS");
 const resourcesPath = path.join(contentsPath, "Resources");
 const executablePath = path.join(macOSPath, "Worship Keys Church");
+const servicePath = path.join(macOSPath, "Worship Keys Church Service");
 const logDirectory = path.join(homedir(), "Library", "Logs", "Worship Keys");
 const logPath = path.join(logDirectory, "church-host.log");
 
@@ -44,8 +45,8 @@ writeFileSync(path.join(contentsPath, "Info.plist"), plist);
 
 const launcher = `#!/bin/zsh
 PROJECT_DIR=${shellQuote(projectRoot)}
-NODE_BIN=${shellQuote(process.execPath)}
 LOG_FILE=${shellQuote(logPath)}
+SERVICE_BIN=${shellQuote(servicePath)}
 LOCAL_URL='http://localhost:3000/'
 HEALTH_URL='http://127.0.0.1:3000/api/session/bootstrap'
 
@@ -58,6 +59,19 @@ if [[ ! -f "$PROJECT_DIR/.next/BUILD_ID" ]]; then
   /usr/bin/osascript -e 'display dialog "Worship Keys needs to be prepared once while online. Run npm run church:install in the project folder." buttons {"OK"} default button "OK" with icon caution'
   exit 1
 fi
+
+/usr/bin/nohup "$SERVICE_BIN" >>"$LOG_FILE" 2>&1 </dev/null &
+exit 0
+`;
+writeFileSync(executablePath, launcher);
+chmodSync(executablePath, 0o755);
+
+const service = `#!/bin/zsh
+PROJECT_DIR=${shellQuote(projectRoot)}
+NODE_BIN=${shellQuote(process.execPath)}
+LOG_FILE=${shellQuote(logPath)}
+LOCAL_URL='http://localhost:3000/'
+HEALTH_URL='http://127.0.0.1:3000/api/session/bootstrap'
 
 (
   for attempt in {1..80}; do
@@ -73,8 +87,8 @@ fi
 cd "$PROJECT_DIR" || exit 1
 exec /usr/bin/env NODE_ENV=production PORT=3000 WK_CHURCH_MODE=1 "$NODE_BIN" server.mjs >>"$LOG_FILE" 2>&1
 `;
-writeFileSync(executablePath, launcher);
-chmodSync(executablePath, 0o755);
+writeFileSync(servicePath, service);
+chmodSync(servicePath, 0o755);
 
 const sourceIcon = path.join(projectRoot, "public", "worship-keys-icon.png");
 if (existsSync(sourceIcon)) {
