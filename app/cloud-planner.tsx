@@ -212,6 +212,20 @@ export function CloudPlanner() {
           unsaved={syncState === "saving" || syncState === "offline"}
           showEditButtons
         />
+        <div className="cloud-rail-actions">
+          <button
+            type="button"
+            className="btn tone-danger"
+            disabled={setlist.songs.length === 0}
+            onClick={() => {
+              if (!window.confirm("Clear every song from this setlist? This cannot be undone.")) return;
+              patchSetlist((current) => ({ ...current, songs: [], activeSongId: undefined }));
+              showNotice("Setlist cleared. The empty setlist is being saved to the cloud and Drive.");
+            }}
+          >
+            Clear setlist
+          </button>
+        </div>
         <div className="cloud-account">
           <span className={`sync-dot is-${syncState}`} />
           <span>{syncState === "saved" ? "Saved to cloud" : syncState === "saving" ? "Saving…" : syncState === "offline" ? "Offline" : syncState === "error" ? "Sync error" : "Loading…"}</span>

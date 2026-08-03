@@ -1926,7 +1926,11 @@ textarea:focus {
 .drive-sync-card .btn-row { display: flex; flex-wrap: wrap; }
 .drive-link { display: inline-flex; align-items: center; text-decoration: none; }
 .drive-sync-card small { color: #bd9e69; }
+.drive-reconnect-link { width: max-content; padding: 0; border: 0; background: transparent; color: var(--wk-text-faint); font-size: 10px; text-decoration: underline; text-underline-offset: 3px; }
+.drive-reconnect-link:hover:not(:disabled) { color: var(--wk-text-soft); }
+.drive-open-button { border-color: #554d8b; color: #c8c0f7; }
 .rail-foot .drive-sync-card { padding-top: 12px; border-top: 1px solid var(--wk-line); }
+.cloud-rail-actions { display: grid; }
 
 @media (max-width: 1000px) {
   .cloud-planner-shell { grid-template-columns: 240px minmax(0, 1fr); }

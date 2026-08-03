@@ -44,10 +44,10 @@ export function DriveFolderPanel({
     });
   }, []);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (chooseAnother = false) => {
     setBusy(true);
     try {
-      const selected = handle ?? (await chooseDriveFolder());
+      const selected = !chooseAnother && handle ? handle : await chooseDriveFolder();
       if (!(await ensureDrivePermission(selected, true))) throw new Error("Folder access was not granted.");
       setHandle(selected);
       setPermission(true);
@@ -107,17 +107,19 @@ export function DriveFolderPanel({
         </p>
       </div>
       <div className="btn-row">
-        <button type="button" className="btn" disabled={busy || !supportsDriveFolderSync()} onClick={() => void connect()}>
-          {handle && permission ? "Reconnect folder" : "Connect Drive folder"}
-        </button>
-        <button type="button" className="btn" disabled={busy || !handle} onClick={() => void save()}>
-          Save to Drive
+        <button type="button" className="btn is-active" disabled={busy || !supportsDriveFolderSync()} onClick={() => void save()}>
+          {handle && permission ? "Export JSON to Drive now" : "Export JSON to Google Drive"}
         </button>
         <button type="button" className="btn" disabled={busy || !handle} onClick={() => void load()}>
-          Load from Drive
+          Load JSON from Drive
         </button>
         <a className="btn drive-link" href={DRIVE_URL} target="_blank" rel="noreferrer">Open Drive</a>
       </div>
+      {handle ? (
+        <button type="button" className="drive-reconnect-link" disabled={busy} onClick={() => void connect(true)}>
+          Change connected folder
+        </button>
+      ) : null}
       {!supportsDriveFolderSync() ? <small>Automatic folder sync needs Chrome or Edge on macOS.</small> : null}
     </section>
   );
