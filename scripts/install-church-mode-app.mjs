@@ -11,9 +11,12 @@ const contentsPath = path.join(appPath, "Contents");
 const macOSPath = path.join(contentsPath, "MacOS");
 const resourcesPath = path.join(contentsPath, "Resources");
 const executablePath = path.join(macOSPath, "Worship Keys Church");
-const servicePath = path.join(macOSPath, "Worship Keys Church Service");
 const logDirectory = path.join(homedir(), "Library", "Logs", "Worship Keys");
 const logPath = path.join(logDirectory, "church-host.log");
+const launchAgentDirectory = path.join(homedir(), "Library", "LaunchAgents");
+const launchAgentLabel = "app.worshipkeys.church.host";
+const launchAgentPath = path.join(launchAgentDirectory, `${launchAgentLabel}.plist`);
+const launchAgentTarget = `gui/${process.getuid()}/${launchAgentLabel}`;
 
 if (!existsSync(path.join(projectRoot, ".next", "BUILD_ID"))) {
   throw new Error("A production build is required before installing the Church Mode app. Run npm run build first.");
@@ -26,6 +29,7 @@ rmSync(appPath, { recursive: true, force: true });
 mkdirSync(macOSPath, { recursive: true });
 mkdirSync(resourcesPath, { recursive: true });
 mkdirSync(logDirectory, { recursive: true });
+mkdirSync(launchAgentDirectory, { recursive: true });
 
 const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -46,7 +50,7 @@ writeFileSync(path.join(contentsPath, "Info.plist"), plist);
 const launcher = `#!/bin/zsh
 PROJECT_DIR=${shellQuote(projectRoot)}
 LOG_FILE=${shellQuote(logPath)}
-SERVICE_BIN=${shellQuote(servicePath)}
+LAUNCH_AGENT=${shellQuote(launchAgentTarget)}
 LOCAL_URL='http://localhost:3000/'
 HEALTH_URL='http://127.0.0.1:3000/api/session/bootstrap'
 
@@ -60,35 +64,48 @@ if [[ ! -f "$PROJECT_DIR/.next/BUILD_ID" ]]; then
   exit 1
 fi
 
-/usr/bin/nohup "$SERVICE_BIN" >>"$LOG_FILE" 2>&1 </dev/null &
-exit 0
+/bin/launchctl kickstart -k "$LAUNCH_AGENT" >>"$LOG_FILE" 2>&1
+for attempt in {1..80}; do
+  if /usr/bin/curl --silent --fail --max-time 1 "$HEALTH_URL" >/dev/null 2>&1; then
+    /usr/bin/open "$LOCAL_URL"
+    exit 0
+  fi
+  /bin/sleep 0.25
+done
+
+/usr/bin/osascript -e 'display dialog "Worship Keys Church could not start. Check the church-host.log file in Library/Logs/Worship Keys." buttons {"OK"} default button "OK" with icon caution'
+exit 1
 `;
 writeFileSync(executablePath, launcher);
 chmodSync(executablePath, 0o755);
 
-const service = `#!/bin/zsh
-PROJECT_DIR=${shellQuote(projectRoot)}
-NODE_BIN=${shellQuote(process.execPath)}
-LOG_FILE=${shellQuote(logPath)}
-LOCAL_URL='http://localhost:3000/'
-HEALTH_URL='http://127.0.0.1:3000/api/session/bootstrap'
+const launchAgentPlist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>${launchAgentLabel}</string>
+  <key>ProgramArguments</key><array>
+    <string>${xmlEscape(process.execPath)}</string>
+    <string>${xmlEscape(path.join(projectRoot, "server.mjs"))}</string>
+  </array>
+  <key>WorkingDirectory</key><string>${xmlEscape(projectRoot)}</string>
+  <key>EnvironmentVariables</key><dict>
+    <key>NODE_ENV</key><string>production</string>
+    <key>PORT</key><string>3000</string>
+    <key>WK_CHURCH_MODE</key><string>1</string>
+  </dict>
+  <key>ProcessType</key><string>Background</string>
+  <key>RunAtLoad</key><false/>
+  <key>StandardOutPath</key><string>${xmlEscape(logPath)}</string>
+  <key>StandardErrorPath</key><string>${xmlEscape(logPath)}</string>
+</dict></plist>`;
+writeFileSync(launchAgentPath, launchAgentPlist);
 
-(
-  for attempt in {1..80}; do
-    if /usr/bin/curl --silent --fail --max-time 1 "$HEALTH_URL" >/dev/null 2>&1; then
-      /usr/bin/open "$LOCAL_URL"
-      exit 0
-    fi
-    /bin/sleep 0.25
-  done
-  /usr/bin/osascript -e 'display dialog "Worship Keys Church could not start. Check the church-host.log file in Library/Logs/Worship Keys." buttons {"OK"} default button "OK" with icon caution'
-) &
-
-cd "$PROJECT_DIR" || exit 1
-exec /usr/bin/env NODE_ENV=production PORT=3000 WK_CHURCH_MODE=1 "$NODE_BIN" server.mjs >>"$LOG_FILE" 2>&1
-`;
-writeFileSync(servicePath, service);
-chmodSync(servicePath, 0o755);
+try {
+  execFileSync("/bin/launchctl", ["bootout", `gui/${process.getuid()}`, launchAgentPath], { stdio: "ignore" });
+} catch {
+  // The agent is not loaded on first install.
+}
+execFileSync("/bin/launchctl", ["bootstrap", `gui/${process.getuid()}`, launchAgentPath]);
 
 const sourceIcon = path.join(projectRoot, "public", "worship-keys-icon.png");
 if (existsSync(sourceIcon)) {
