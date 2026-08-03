@@ -3,6 +3,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { WORSHIP_KEYS_ICON_DATA_URL } from "@/lib/brand/original-icon";
 import { DriveFolderPanel } from "@/components/setlist/drive-folder-panel";
 import { SetlistRail } from "@/components/setlist/setlist-rail";
 import { SetlistTransfer } from "@/components/setlist/setlist-transfer";
@@ -39,7 +40,8 @@ const DEFAULT_STATE = createPersistedState(createStarterSetlist());
 function CloudBrand() {
   return (
     <div className="cloud-brand" aria-label="Worship Keys">
-      <span className="cloud-brand-mark" aria-hidden="true">WK</span>
+      {/* eslint-disable-next-line @next/next/no-img-element -- embedded original mark avoids a network fetch */}
+      <img className="cloud-brand-mark" src={WORSHIP_KEYS_ICON_DATA_URL} alt="" aria-hidden="true" />
       <span><b>Worship</b><strong>Keys</strong></span>
     </div>
   );
