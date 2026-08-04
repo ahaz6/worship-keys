@@ -44,10 +44,11 @@ export function ViewerView({
       </div>
 
       <div className="live-main">
-        <span className="label">
+        <span className="label join-session-meta">
           {snapshot?.sessionName ?? "Session"}
-          {snapshot?.activeSong ? ` · ${snapshot.activeSong.title} · Song ${snapshot.activeSong.position} of ${snapshot.activeSong.total}` : ""}
+          {snapshot?.activeSong ? ` · Song ${snapshot.activeSong.position} of ${snapshot.activeSong.total}` : ""}
         </span>
+        <div className="join-active-song">{snapshot?.activeSong?.title ?? "No song selected"}</div>
         <div className={`live-nashville${snapshot?.nashville ? "" : " is-idle"}`} aria-live="polite">
           {snapshot?.nashville ?? "—"}
         </div>

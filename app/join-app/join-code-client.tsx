@@ -5,17 +5,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 
 import { BrandMark } from "@/components/brand/brand-mark";
-import { isPrivateIPv4 } from "@/lib/session/lan-addresses";
 import { isJoinCode, normaliseJoinCode, resolveCloudJoinCode } from "@/lib/session/join-code";
-
-type LocalResolution = { joinUrl?: string; error?: string };
-
-function runsOnLocalHost(): boolean {
-  return window.location.hostname === "localhost"
-    || window.location.hostname === "127.0.0.1"
-    || window.location.hostname.endsWith(".local")
-    || isPrivateIPv4(window.location.hostname);
-}
 
 export function JoinCodeClient() {
   const [code, setCode] = useState("");
@@ -29,18 +19,6 @@ export function JoinCodeClient() {
     setMessage(null);
 
     try {
-      if (runsOnLocalHost()) {
-        const response = await fetch(`/api/session/resolve-code?code=${encodeURIComponent(code)}`, { cache: "no-store" });
-        const body = (await response.json()) as LocalResolution;
-        if (response.ok && body.joinUrl) {
-          window.location.assign(body.joinUrl);
-          return;
-        }
-        // A locally installed Worship Join app may also be used for an online
-        // Cloud Live room. Only a genuine local server error blocks fallback.
-        if (response.status !== 404) throw new Error(body.error ?? "The local session could not be opened.");
-      }
-
       const viewerToken = await resolveCloudJoinCode(code);
       window.location.assign(`/join?cloud=1&t=${encodeURIComponent(viewerToken)}`);
     } catch (error) {
@@ -56,7 +34,7 @@ export function JoinCodeClient() {
         <div className="join-code-copy">
           <span className="eyebrow">Worship Join</span>
           <h1 id="join-code-title">Join a live session</h1>
-          <p>Enter the six-digit code shown by the Worship Keys host.</p>
+          <p>Enter the six-digit code shown by a Worship Keys Cloud Live host.</p>
         </div>
 
         <form className="join-code-form" onSubmit={submit}>
@@ -85,7 +63,7 @@ export function JoinCodeClient() {
 
         <div className="join-code-install-note">
           <strong>Install as a separate iPhone app</strong>
-          <span>In Safari choose Share → Add to Home Screen. “Worship Join” will always reopen on this code screen.</span>
+          <span>In Safari choose Share → Add to Home Screen. For Offline Church, install Worship Join from the Mac&apos;s local `/join-app` address instead.</span>
         </div>
         <Link className="join-code-main-link" href="/">Open the main Worship Keys app</Link>
       </section>

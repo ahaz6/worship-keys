@@ -138,11 +138,13 @@ export function LeaderView({
       ) : null}
 
       <div className="live-main leader-live-main" style={{ gap: 8 }}>
-        <span className="label">
+        <span className="label join-session-meta">
+          {snapshot?.sessionName ?? "Session"}
           {snapshot?.activeSong
-            ? `${snapshot.activeSong.title} · Song ${snapshot.activeSong.position} of ${snapshot.activeSong.total}`
-            : "No song selected"}
+            ? ` · Song ${snapshot.activeSong.position} of ${snapshot.activeSong.total}`
+            : ""}
         </span>
+        <div className="join-active-song">{snapshot?.activeSong?.title ?? "No song selected"}</div>
         <div className={`live-nashville${snapshot?.nashville ? "" : " is-idle"}`} style={{ fontSize: "clamp(90px, 18vw, 180px)" }}>
           {snapshot?.nashville ?? "—"}
         </div>

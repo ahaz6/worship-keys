@@ -5,7 +5,7 @@ export function GET() {
     id: "/worship-join",
     name: "Worship Join",
     short_name: "Worship Join",
-    description: "Join a live Worship Keys session with a six-digit code.",
+    description: "Join a live Worship Keys session locally or through Cloud Live.",
     start_url: "/join-app",
     scope: "/",
     display: "standalone",

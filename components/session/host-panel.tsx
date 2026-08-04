@@ -212,7 +212,11 @@ export function HostPanel({
       {joinOpen && bootstrap ? (
         <Modal title="Join this session" onClose={() => setJoinOpen(false)}>
           {copyNotice ? <div className="callout tone-info">{copyNotice}</div> : null}
-          <p className="hint">Musicians scan the QR or enter the six-digit code in Worship Join. They land in the view-only monitor; the pianist then enters the separate leader PIN.</p>
+          <p className="hint">
+            {localChurchMode
+              ? "Musicians scan the QR or open the fixed local address. A new device enters its name and joins the view-only monitor directly; the pianist then enters the separate leader PIN."
+              : "Musicians scan the QR or enter the six-digit code in Worship Join. They land in the view-only monitor; the pianist then enters the separate leader PIN."}
+          </p>
           <div className="qr">
             {qr ? (
               // eslint-disable-next-line @next/next/no-img-element -- data URL generated per session, not a static asset
@@ -229,11 +233,13 @@ export function HostPanel({
               {joinUrl}
             </strong>
           </div>
-          <div className="field">
-            <span className="label">Six-digit session code</span>
-            <strong className="pin-display join-code-display">{bootstrap.joinCode}</strong>
-            <span className="hint">Open the fixed “Worship Join” Home Screen app and enter this code.</span>
-          </div>
+          {!localChurchMode ? (
+            <div className="field">
+              <span className="label">Six-digit session code</span>
+              <strong className="pin-display join-code-display">{bootstrap.joinCode}</strong>
+              <span className="hint">Open the fixed “Worship Join” Home Screen app and enter this code.</span>
+            </div>
+          ) : null}
           <div className="field">
             <span className="label">Leader PIN</span>
             <span className="pin-display">{bootstrap.leaderPin}</span>

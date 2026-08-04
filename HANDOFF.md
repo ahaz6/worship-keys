@@ -90,6 +90,13 @@ automates the two per-voice `keyGain` nodes. Fade in and fade out therefore aim
 at the *stored* main volume without ever rewriting it, and a crossfade during a
 fade does not corrupt either automation.
 
+**Crescendo release is explicitly de-clicked.** A reversal first holds the
+currently rendered AudioParam value, waits an 8 ms audio-clock look-ahead and
+then schedules a flat-ended smooth curve. Crescendo gain, tone cutoff,
+brightness and all four mid/side width gains turn together without sharing an
+automation timestamp. JavaScript only mirrors the XY animation; it never drives
+the DSP curve frame by frame.
+
 **Shimmer is a real octave layer.** `public/worklets/shimmer-processor.js` is a
 granular pitch shifter: it keeps a short delay line of the pad and reads it back
 at twice the write rate through two overlapping windowed grains. Changing
@@ -180,16 +187,31 @@ other's device identity accidentally.
 
 **Main and Join are distinct installable web apps.** The root manifest has the
 stable id `/worship-keys` and always starts at `/`. Both `/join` and the fixed
-`/join-app` entry page override it with the `/worship-join` manifest, whose
-start URL is the six-digit code screen. A Cloud Live host temporarily registers
-its code through a dedicated Supabase Broadcast lobby and returns the opaque
-viewer token only to a matching resolver. The local Node host resolves its own
-code at `/api/session/resolve-code`; nothing is persisted and restarting the
-host rotates the code. The code grants viewer discovery only. Leader control
-still requires the separate PIN, and host join locking remains authoritative.
+`/join-app` entry page override it with the `/worship-join` manifest. The local
+Node Church host redirects `/join-app` directly into its current viewer session,
+so no local session code is required. On Vercel, `/join-app` remains the
+six-digit Cloud Live code screen. A Cloud Live host temporarily registers its
+code through a dedicated Supabase Broadcast lobby and returns the opaque viewer
+token only to a matching resolver. Nothing is persisted and restarting the host
+invalidates the room. Leader control still requires the separate PIN, and host
+join locking remains authoritative.
 There is intentionally no claim of zero-configuration discovery from a
 Vercel-origin PWA to an unknown offline LAN IP: the local Join PWA or QR is the
 honest offline path.
+
+**The live title is host-owned.** Every host snapshot publishes the current
+setlist name as `sessionName`; both Viewer and Leader render that name as quiet
+metadata and the active song as a separate highlighted title. The initial
+`Sunday Morning` fallback is visible only before the first real host snapshot.
+
+**The local Church join is now code-free.** The stable local address
+`http://<private-ip>:3000/join-app` receives a non-cacheable server redirect to
+the current tokenised Viewer URL. New devices enter their name once; known,
+non-revoked devices reconnect through their stored per-host device token. The
+local QR contains this stable address and the Offline Church host dialog no
+longer shows a session code. Vercel Cloud Live deliberately keeps its six-digit
+room discovery because no local Node host exists there. The separate Leader PIN
+and server-side role checks are unchanged.
 
 **Offline Church Mode is the recommended Sunday runtime.** `npm run
 church:install` creates `/Applications/Worship Keys Church.app` and
@@ -248,6 +270,13 @@ Exercised in a production build in a real browser, not only in unit tests:
   stale Crescendo-return animation before it can overwrite that position.
 - Previous/next song from Join performs the same smooth equal-power crossfade
   as the main host UI while all Sound Wall mixer values remain stationary.
+- Viewer and Leader receive the exact current setlist name from the host and
+  show the active song title as a separate highlighted line.
+- Opening the local `/join-app` address redirects directly to the active Viewer
+  session. A first-time browser asks only for its device name; no local
+  six-digit session-code screen appears.
+- Releasing Crescendo reverses gain, tone, brightness and stereo width through
+  held, look-ahead Web Audio curves rather than abrupt cancellation.
 - Desktop 1440×900, tablet landscape 1024×768 and tablet portrait 768×1024 were
   reviewed; the portrait rail collapses to a compact band so the performance
   stage stays above the fold.
@@ -275,7 +304,7 @@ Exercised in a production build in a real browser, not only in unit tests:
 - The local direct Join URL remains visible in the QR dialog as a fallback for
   Safari or managed browsers that deny cross-network WebSockets.
 
-Five real bugs were found this way and fixed:
+Eight real bugs were found this way and fixed:
 
 1. A reversed fade-out left its completion timer running, which later told the
    transition machine the pad had stopped while it was still playing. The timer
@@ -294,6 +323,15 @@ Five real bugs were found this way and fixed:
 5. Same-key adjacent songs skipped the pad transition because they shared an
    asset URL. Song navigation now requests a deliberate same-asset restart and
    crossfades the two independent voices.
+6. The live session name remained at the constructor fallback `Sunday Morning`
+   even after the host loaded a renamed setlist. It is now included in every
+   semantic host snapshot.
+7. The local Worship Join PWA still required a transient six-digit discovery
+   code even though it already addressed the authoritative Church Mac. The
+   self-hosted server now resolves its stable `/join-app` entry directly.
+8. Releasing Crescendo cancelled several AudioParam ramps on the same audio
+   quantum, which could expose a one-sample discontinuity. Compound release
+   parameters now use held, slightly ahead-scheduled smooth curves.
 
 **Phones receive a dedicated performance layout.** At viewports up to 600 px,
 the host and Join screens reduce secondary chrome, use a three-column concert-key
@@ -313,6 +351,13 @@ files**, plus typecheck, ESLint, all **8 Playwright browser flows** (including a
 real two-profile Supabase Cloud Live session and an offline host/device request
 audit) and a successful Next production build. Dynamic routes include `/api/deploy-setlist`,
 `/api/open-setlist-from-drive` and `/api/session/qr`.
+
+The 4 August local publication candidate reran typecheck, ESLint, all 164
+Vitest tests, the production build, the stable local `/join-app` redirect and
+local QR generation. The eight-flow Playwright baseline remains from the prior
+full browser verification and was not rerun for the audio-curve-only change;
+the remaining mandatory check is a hardware listening test through the actual
+Sunday audio output.
 
 - `tests/nashville.test.ts` — every mandatory case from spec 12.4, all 12 roots
   × major/minor, all 12 keys × diatonic degrees in both modes, borrowed chords,
@@ -396,6 +441,10 @@ audit) and a successful Next production build. Dynamic routes include `/api/depl
   the shipped mode and the UI explains the limit.
 - Separate major/minor pad audio. The shipped packs are root/fifth/octave drones
   with no third, so one set serves both modes; spec 27.2 leaves this open.
+- Dedicated `/manage` PWA with independently paired, revocable Remote Manager
+  device tokens. The current Leader upgrade remains available through Join.
+- Hardware listening verification that repeated Crescendo → Release cycles are
+  click-free through the actual SQ-rack signal path.
 
 ## 8. Open product questions
 
@@ -462,3 +511,6 @@ Required server-only Vercel variables are documented in `.env.example`:
    and confirm `Saved on this device`.
 7. On Sunday, open `Worship Keys Church.app`, run `Check all offline pads`, wait
    for `READY · INTERNET NOT REQUIRED`, then share only the local QR.
+8. For a stable Church IP, follow `Worship Keys IP Setup Church.md`; keep the
+   Host UI on `localhost`, the local Viewer entry on `/join-app`, and reserve
+   Remote Management as a separate future route rather than inventing extra IPs.

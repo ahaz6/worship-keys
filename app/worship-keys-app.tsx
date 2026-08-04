@@ -818,6 +818,7 @@ export function WorshipKeysApp({ runtime = "local" }: { runtime?: WorshipKeysRun
     const position = songPosition(setlist, song?.id);
     const patch = {
       hostOnline: true,
+      sessionName: setlist.name,
       activeSong: song
         ? { id: song.id, title: song.title, artist: song.artist, position: position.position, total: position.total }
         : null,

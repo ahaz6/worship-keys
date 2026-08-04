@@ -4,7 +4,7 @@ import { JoinCodeClient } from "./join-code-client";
 
 export const metadata: Metadata = {
   title: "Worship Join",
-  description: "Join a live Worship Keys session with a six-digit code.",
+  description: "Join a live Worship Keys session locally or through Cloud Live.",
   applicationName: "Worship Join",
   manifest: "/join-manifest.webmanifest",
   appleWebApp: {

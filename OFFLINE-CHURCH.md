@@ -8,6 +8,9 @@ benötigt.
 Für die erstmalige Einrichtung auf einem neuen Mac ohne Git- oder
 Terminalkenntnisse siehe [SETUP.md](SETUP.md).
 
+Für einen dauerhaft gleichen lokalen Join-Einstieg über `10.10.1.2` siehe
+[Worship Keys IP Setup Church.md](Worship%20Keys%20IP%20Setup%20Church.md).
+
 ## 1. Benötigte Geräte
 
 - ein Mac mit Chrome und der installierten App **Worship Keys Church**,
@@ -94,7 +97,7 @@ Die bevorzugte IP wird automatisch ermittelt. Physische Netzwerkadapter wie
 Ethernet und WLAN werden gegenüber VPN-, Bridge- und virtuellen Interfaces
 bevorzugt.
 
-## 6. Musiker per QR-Code oder sechsstelligen Code verbinden
+## 6. Musiker über die feste Join-Adresse verbinden
 
 1. **Show local join QR** wählen.
 2. Prüfen, dass die Adresse mit `192.168.`, `10.` oder `172.16–31.` beginnt.
@@ -104,28 +107,27 @@ bevorzugt.
 6. Ein berechtigter Leader kann Songs, Tonarten, Pads, Fades und Crescendo
    fernsteuern.
 
-Alternativ zeigt derselbe Dialog einen sechsstelligen **Session-Code**. Wer die
-separate iPhone-Webapp **Worship Join** bereits von der lokalen Church-Adresse
-installiert hat, öffnet sie und gibt nur diesen Code ein. Die Webapp fragt den
-laufenden Mac im selben Netz, erhält intern den langen Viewer-Link und öffnet
-danach dieselbe Join UI wie der QR-Code.
+Alternativ öffnen Musiker direkt die feste lokale Adresse `/join-app`. Der
+laufende Church-Mac leitet sie automatisch in die aktuelle Viewer-Session. Ein
+neues Gerät gibt einmal seinen Namen ein; ein bereits bekanntes und nicht
+widerrufenes Gerät verbindet sich anschließend automatisch wieder.
 
 So werden auf dem iPhone zwei feste Symbole angelegt:
 
 1. Die lokale Main UI in Safari öffnen und **Teilen → Zum Home-Bildschirm**
    wählen. Dieses Symbol heißt **Worship Keys**.
-2. Danach einmal den lokalen QR-/Join-Link öffnen und dort erneut
+2. Danach die lokale Adresse `/join-app` öffnen und dort erneut
    **Teilen → Zum Home-Bildschirm** wählen. Dieses Symbol heißt
-   **Worship Join** und startet künftig immer mit der Code-Eingabe.
+   **Worship Join** und öffnet künftig direkt die laufende lokale Session.
 
 Wichtig: Eine zuvor von `vercel.app` installierte Join-Webapp kann ohne Internet
 nicht automatisch erraten, welche lokale IP der Kirchen-Mac bekommen hat. Für
 den garantiert internetfreien Betrieb **Worship Join einmal aus der lokalen
 Church-Adresse installieren** oder weiterhin den lokalen QR-Code verwenden.
 
-Der lokale QR darf niemals auf `vercel.app` zeigen. Der Session-Code berechtigt
-nur zum Einstieg als Viewer; Leader-Steuerung braucht weiterhin den getrennten
-Leader-PIN. Audio wird nicht über das
+Der lokale QR darf niemals auf `vercel.app` zeigen. Der direkte lokale Einstieg
+berechtigt nur zum Viewer-Zugriff; Leader-Steuerung braucht weiterhin den
+getrennten Leader-PIN. Audio wird nicht über das
 Netzwerk übertragen: Es bleibt ausschließlich auf dem Host-Mac. Über das lokale
 WebSocket werden nur kompakte Zustände und Steuerbefehle ausgetauscht.
 

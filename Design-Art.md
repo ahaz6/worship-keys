@@ -2,7 +2,7 @@
 
 > Wiederverwendbares Design-Handout für **Worship Loops**, **Worship Keys** und zukünftige Produkte der Reihe **Worship XYZ**.
 >
-> Version: 1.0 · Stand: 2. August 2026
+> Version: 1.1 · Stand: 4. August 2026
 
 ## 1. Zweck dieses Dokuments
 
@@ -154,6 +154,37 @@ Dieses Rezept ist ein Ausgangspunkt. Die Deckkraft der Lichtfelder soll so niedr
 - Weiß: Hauptinformation, nicht Dekoration
 
 Farbe darf niemals die einzige Zustandsinformation sein. Text, Icon oder Form müssen den Zustand zusätzlich ausdrücken.
+
+### 5.3 Verbindliche produktübergreifende Tokens
+
+Worship Keys ist inzwischen die präzisere ausführbare Referenz für die
+Grundfarben. Worship Loops soll bei seiner nächsten Überarbeitung dieselben
+Werte verwenden und nur den Variablenpräfix behalten:
+
+| Bedeutung | Worship Keys | Worship Loops | Wert |
+| --- | --- | --- | --- |
+| tiefer Hintergrund | `--wk-bg-deep` | `--wl-bg-deep` | `#09090c` |
+| Hintergrund | `--wk-bg` | `--wl-bg` | `#0d0d12` |
+| Panel | `--wk-panel` | `--wl-panel` | `#121216` |
+| erhöhtes Panel | `--wk-panel-raised` | `--wl-panel-raised` | `#17171e` |
+| aktives Panel | `--wk-panel-active` | `--wl-panel-active` | `#20202a` |
+| Haupttext | `--wk-text` | `--wl-text` | `#efeff4` |
+| weicher Text | `--wk-text-soft` | `--wl-text-soft` | `#b5b3c1` |
+| gedämpfter Text | `--wk-text-muted` | `--wl-text-muted` | `#85858f` |
+| Standardlinie | `--wk-line` | `--wl-line` | `#292931` |
+| Violett | `--wk-violet` | `--wl-violet` | `#7668b7` |
+| helles Violett | `--wk-violet-bright` | `--wl-violet-bright` | `#9d8cff` |
+| Indigo | `--wk-indigo` | `--wl-indigo` | `#4e5fc6` |
+| Blau | `--wk-blue` | `--wl-blue` | `#5d7fe6` |
+| Erfolg | `--wk-success` | `--wl-success` | `#67a89e` |
+| Warnung | `--wk-warning` | `--wl-warning` | `#c89b61` |
+| Gefahr | `--wk-danger` | `--wl-danger` | `#c76f7b` |
+
+Auch Geometrie und Bewegung werden vereinheitlicht: Controls `9px`, Cards
+`14px`, Modals `20px`, normale UI-Transition `170ms` mit
+`cubic-bezier(0.32, 0.72, 0.35, 1)`. Produktunterschiede entstehen durch
+Inhalt, Informationshierarchie und Logo, nicht durch zufällig abweichende
+Grautöne.
 
 ## 6. Typografie
 
@@ -323,6 +354,32 @@ Die drei wichtigsten Klangregler werden als zusammengehörige, aber klar getrenn
 - `Reconnecting` und das Alter des letzten Updates sind sichtbar, ohne den gesamten Bildschirm zu blockieren.
 - Ein QR-Code erscheint nur im Host-/Join-Screen, nicht dauerhaft im Performance-Screen.
 
+### 9.11 Aktiver Song in Live- und Remote-Ansichten
+
+- Setlist-Name und Position sind kleine Metadaten, nicht der Songtitel.
+- Der aktuelle Songtitel steht in einer eigenen Zeile, deutlich heller und
+  größer als Metadaten, aber kleiner als Nashville-Zahl oder Hauptakkord.
+- Empfohlene Größe: `clamp(24px, 3.2vw, 42px)` auf großen Screens und
+  `22–31px` auf Telefonen.
+- Lange Titel dürfen umbrechen; auf engen technischen Kopfzeilen ist Ellipsis
+  zulässig. Der vollständige Titel muss an mindestens einer prominenten Stelle
+  sichtbar bleiben.
+- Ein sehr zurückhaltender violetter Textschatten darf den Live-Fokus stärken;
+  kein pulsierender Glow.
+
+### 9.12 Getrennte installierbare Oberflächen
+
+Wenn ein Produkt Host-, Remote- und Viewer-Rollen besitzt, werden sie als
+eigene Einstiege und gegebenenfalls eigene PWA-Identitäten behandelt:
+
+- Host: Hardware, Audio und sicherheitskritische Einstellungen,
+- Remote Management: autorisierte musikalische Fernsteuerung,
+- Viewer: reine Live-Information ohne deaktivierte Host-Controls.
+
+Die Rollen unterscheiden sich durch Berechtigungen und Informationsdichte,
+nicht zwingend durch verschiedene IP-Adressen. Eine feste lokale Host-IP mit
+getrennten Pfaden und widerrufbaren Tokens ist der bevorzugte Aufbau.
+
 ## 10. Motion und Audio-Feedback
 
 - Standardübergänge: 140–220 ms.
@@ -331,6 +388,12 @@ Die drei wichtigsten Klangregler werden als zusammengehörige, aber klar getrenn
 - Eine laufende Transition kann durch einen ruhigen Fortschrittsring oder eine Lichtkante gezeigt werden.
 - Keine dauernden Parallax-, Stern- oder Partikelanimationen.
 - Audiozustände müssen visuell nachvollziehbar bleiben; umgekehrt darf ein visueller Klick nicht fälschlich bedeuten, dass Audio bereits läuft.
+- Live-Audioparameter dürfen niemals hart springen. Gain, Filter, Pan, Width
+  und Effekt-Sends verwenden gehaltene Dezipper-Rampen; beim Umkehren einer
+  Automation wird am tatsächlich hörbaren Wert weitergefahren.
+- Mehrere gleichzeitig laufende Parameterkurven müssen auf derselben
+  Audio-Zeitbasis beginnen. JavaScript-Timer spiegeln nur den Zustand und
+  treiben nicht sampleweise den Klang.
 
 ## 11. Barrierefreiheit und Bühnentauglichkeit
 

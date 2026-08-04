@@ -1412,6 +1412,23 @@ textarea:focus {
   text-align: center;
 }
 
+.join-session-meta {
+  color: #9690ad;
+}
+
+.join-active-song {
+  max-width: min(760px, 88vw);
+  overflow: hidden;
+  color: #f2f0fb;
+  font-size: clamp(24px, 3.2vw, 42px);
+  font-weight: 680;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  text-shadow: 0 0 28px #7764d052;
+}
+
 .live-nashville {
   font-size: clamp(140px, 32vw, 340px);
   line-height: 0.86;
@@ -2337,11 +2354,16 @@ textarea:focus {
     gap: 9px;
   }
 
-  .viewer-live-shell .live-main > .label {
+  .viewer-live-shell .join-session-meta {
     max-width: 92vw;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .viewer-live-shell .join-active-song {
+    max-width: 92vw;
+    font-size: clamp(22px, 7.5vw, 31px);
   }
 
   .viewer-live-shell .live-nashville {
@@ -2402,11 +2424,16 @@ textarea:focus {
     padding: 6px 0;
   }
 
-  .leader-live-main > .label {
+  .leader-live-main .join-session-meta {
     max-width: 92vw;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .leader-live-main .join-active-song {
+    max-width: 92vw;
+    font-size: clamp(21px, 7vw, 29px);
   }
 
   .leader-live-main .live-nashville {

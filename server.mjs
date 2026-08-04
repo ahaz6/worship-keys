@@ -102,7 +102,7 @@ async function handleSessionRoute(request, response, url) {
     const addresses = lanAddresses();
     const preferred = selectPreferredLanAddress(addresses, process.env.WK_LAN_IP) ?? "localhost";
     const authority = `${preferred}:${port}`;
-    const localJoinUrl = `http://${authority}/join?t=${store.viewerToken}`;
+    const localJoinUrl = `http://${authority}/join-app`;
     const cloudJoinUrl = `${publicAppOrigin}/join?host=${encodeURIComponent(authority)}&t=${store.viewerToken}`;
     json(response, 200, {
       sessionId: store.sessionId,
@@ -116,20 +116,6 @@ async function handleSessionRoute(request, response, url) {
       addresses,
       port,
     });
-    return true;
-  }
-
-  // GET /api/session/resolve-code — public viewer-link discovery on this LAN.
-  if (url.pathname === "/api/session/resolve-code" && request.method === "GET") {
-    const code = url.searchParams.get("code") ?? "";
-    if (code !== store.joinCode) {
-      json(response, 404, { error: "No active local session was found for this code." });
-      return true;
-    }
-    // The device already reached this origin, so preserve that exact reachable
-    // authority instead of guessing which Mac interface it used.
-    const authority = request.headers.host ?? `localhost:${port}`;
-    json(response, 200, { joinUrl: `http://${authority}/join?t=${store.viewerToken}` });
     return true;
   }
 
@@ -148,8 +134,20 @@ async function handleSessionRoute(request, response, url) {
   // GET /api/session/qr?url=... — QR image for the join link.
   if (url.pathname === "/api/session/qr" && request.method === "GET") {
     const target = url.searchParams.get("url") ?? "";
-    // Only ever encode this session's own join link, never arbitrary input.
-    if (!target.includes(store.viewerToken)) {
+    let stableLocalJoin = false;
+    try {
+      const parsedTarget = new URL(target);
+      const allowedHosts = new Set(["localhost", "127.0.0.1", ...lanAddresses().map((entry) => entry.address)]);
+      stableLocalJoin = parsedTarget.protocol === "http:"
+        && parsedTarget.pathname === "/join-app"
+        && allowedHosts.has(parsedTarget.hostname)
+        && (parsedTarget.port || "80") === String(port);
+    } catch {
+      stableLocalJoin = false;
+    }
+    // Only ever encode this session's token link or its stable local entry,
+    // never arbitrary caller-provided URLs.
+    if (!target.includes(store.viewerToken) && !stableLocalJoin) {
       json(response, 400, { error: "Unknown join link." });
       return true;
     }
@@ -189,6 +187,17 @@ const handleNextUpgrade = app.getUpgradeHandler();
 
 const server = createServer((request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+  // The self-hosted Church app owns the live viewer token, so its stable
+  // /join-app address can enter the current session without a discovery code.
+  // Vercel does not run this server and therefore keeps its cloud code screen.
+  if (request.method === "GET" && url.pathname === "/join-app") {
+    response.writeHead(302, {
+      location: `/join?t=${encodeURIComponent(store.viewerToken)}`,
+      "cache-control": "no-store",
+    });
+    response.end();
+    return;
+  }
   handleSessionRoute(request, response, url)
     .then((handled) => {
       // Next parses the URL itself; handing it a WHATWG URL breaks its

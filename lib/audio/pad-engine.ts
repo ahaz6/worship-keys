@@ -69,6 +69,11 @@ export const PAD_LIMITS = {
 } as const;
 
 const VOLUME_RAMP_SECONDS = 0.035;
+// Scheduling a reversal a few audio frames ahead avoids two automation events
+// sharing the exact same timestamp. Some Web Audio implementations otherwise
+// expose a one-sample discontinuity when cancelAndHoldAtTime is followed by a
+// new curve immediately — audible as a click on a full-range worship pad.
+const PARAM_AUTOMATION_LOOKAHEAD_SECONDS = 0.008;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -666,14 +671,12 @@ export class PadEngine {
     const now = context.currentTime;
     const peak = Math.pow(10, PAD_LIMITS.crescendoMaxGainDb / 20);
 
-    this.cancelAutomation(this.crescendoGain.gain, now);
-    this.crescendoGain.gain.setValueCurveAtTime(fadeCurve(this.crescendoGain.gain.value, peak, "smooth"), now, duration);
+    this.scheduleSmoothParam(this.crescendoGain.gain, peak, now, duration);
 
     // Opening the filter alongside the level is what makes it read as a build
     // rather than as somebody turning up the volume.
     const openTo = Math.min(16000, this.toneFrequency() * 2.2);
-    this.cancelAutomation(this.toneFilter.frequency, now);
-    this.toneFilter.frequency.setValueCurveAtTime(fadeCurve(this.toneFilter.frequency.value, openTo, "smooth"), now, duration);
+    this.scheduleSmoothParam(this.toneFilter.frequency, openTo, now, duration);
 
     this.crescendoActive = true;
     this.automationStart = now;
@@ -685,14 +688,9 @@ export class PadEngine {
     const context = this.context;
     if (!context || !this.crescendoGain || !this.toneFilter) return;
     const now = context.currentTime;
-    this.cancelAutomation(this.crescendoGain.gain, now);
-    this.crescendoGain.gain.setValueCurveAtTime(fadeCurve(this.crescendoGain.gain.value, 1, "smooth"), now, seconds);
-    this.cancelAutomation(this.toneFilter.frequency, now);
-    this.toneFilter.frequency.setValueCurveAtTime(
-      fadeCurve(this.toneFilter.frequency.value, this.toneFrequency(), "smooth"),
-      now,
-      seconds,
-    );
+    const duration = Math.max(0.05, seconds);
+    this.scheduleSmoothParam(this.crescendoGain.gain, 1, now, duration);
+    this.scheduleSmoothParam(this.toneFilter.frequency, this.toneFrequency(), now, duration);
     this.crescendoActive = false;
     this.emit();
   }
@@ -764,10 +762,12 @@ export class PadEngine {
     const context = this.context;
     if (!context || !this.brightnessFilter) return;
     const now = context.currentTime;
-    const end = now + Math.max(0.05, durationSeconds);
-    this.brightnessFilter.gain.cancelScheduledValues(now);
-    this.brightnessFilter.gain.setValueAtTime(this.brightnessFilter.gain.value, now);
-    this.brightnessFilter.gain.linearRampToValueAtTime(brightnessPercentToDb(this.brightnessPercent), end);
+    this.scheduleSmoothParam(
+      this.brightnessFilter.gain,
+      brightnessPercentToDb(this.brightnessPercent),
+      now,
+      Math.max(0.05, durationSeconds),
+    );
   }
 
   static brightnessLabel(percent: number): "Soft" | "Warm" | "Airy" | "Bright" {
@@ -805,16 +805,14 @@ export class PadEngine {
     const same = (1 + side) / 2;
     const cross = (1 - side) / 2;
     const now = context.currentTime;
-    const end = now + Math.max(0.05, durationSeconds);
+    const duration = Math.max(0.05, durationSeconds);
     for (const [node, value] of [
       [this.widthLToL, same],
       [this.widthRToR, same],
       [this.widthRToL, cross],
       [this.widthLToR, cross],
     ] as const) {
-      node.gain.cancelScheduledValues(now);
-      node.gain.setValueAtTime(node.gain.value, now);
-      node.gain.linearRampToValueAtTime(value, end);
+      this.scheduleSmoothParam(node.gain, value, now, duration);
     }
   }
 
@@ -1038,6 +1036,21 @@ export class PadEngine {
     const value = param.value;
     param.cancelScheduledValues(now);
     param.setValueAtTime(value, now);
+  }
+
+  /**
+   * Reverses a live AudioParam without ever stepping it. The current rendered
+   * value is held first, remains constant for a tiny look-ahead window, and
+   * then follows a flat-ended smooth curve. This is used for compound gestures
+   * such as Crescendo release where gain, filtering and stereo width all turn
+   * around on the same audio quantum.
+   */
+  private scheduleSmoothParam(param: AudioParam, target: number, now: number, duration: number): void {
+    const current = param.value;
+    this.cancelAutomation(param, now);
+    const start = now + PARAM_AUTOMATION_LOOKAHEAD_SECONDS;
+    param.setValueAtTime(current, start);
+    param.setValueCurveAtTime(fadeCurve(current, target, "smooth"), start, Math.max(0.05, duration));
   }
 
   private scheduleFade(from: number, to: number, now: number, duration: number, curve: FadeCurve): void {
